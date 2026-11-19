@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>NP05J SunUEFI Boot Helper</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">SUNUEFI HYBRID DUAL-BOOT PREVIEW</div>
+        <h1 data-i18n="title">NP05J Boot Helper</h1>
+      </div>
+      <div class="lang-switch">
+        <button class="pill active" data-lang="en">EN</button>
+        <button class="pill" data-lang="th">TH</button>
+        <button class="pill" data-lang="zh">ZH</button>
+      </div>
+    </header>
+
+    <section class="status-strip" id="statusStrip">
+      <div class="stat"><span data-i18n="deviceLabel">Device</span><strong id="stDevice">nubia NP05J</strong></div>
+      <div class="stat"><span data-i18n="slotLabel">Slot</span><strong id="stSlot">_a</strong></div>
+      <div class="stat"><span data-i18n="modeLabel">Boot Image</span><strong id="stMode">Inspecting...</strong></div>
+      <div class="stat"><span data-i18n="touchLabel">Touch IC</span><strong>Synaptics S3930 SPI4</strong></div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="boot" data-i18n="tabBoot">Boot</button>
+      <button class="tab" data-tab="storage" data-i18n="tabStorage">Install / Storage</button>
+      <button class="tab" data-tab="maint" data-i18n="tabMaint">Maintenance</button>
+    </nav>
+
+    <main>
+      <section class="panel active" id="tab-boot">
+        <h2 data-i18n="bootTitle">One-Tap OS & BIOS Switcher</h2>
+        <p class="muted" data-i18n="bootDesc">Writes a one-shot NEXTv1 target into the combined SPLITv1 boot partition before rebooting.</p>
+
+        <div class="grid">
+          <button class="action-card accent-sky" data-reboot="windows">
+            <span class="tag">WOA ACPI</span>
+            <strong data-i18n="btnWin11">Reboot to Windows 11 ARM</strong>
+            <small>SUNUEFI-EMBEDv1 target=4</small>
+          </button>
+          <button class="action-card accent-green" data-reboot="linux">
+            <span class="tag">LINUX</span>
+            <strong data-i18n="btnLinux">Reboot to Linux (DTB/ACPI)</strong>
+            <small>SUNUEFI-EMBEDv1 target=2</small>
+          </button>
+          <button class="action-card accent-cyan" data-reboot="uefi">
+            <span class="tag">UEFI MENU</span>
+            <strong data-i18n="btnUefiMenu">Reboot to Touch Boot Menu</strong>
+            <small>SUNUEFI-EMBEDv1 target=1</small>
+          </button>
+          <button class="action-card accent-gold" data-reboot="bios">
+            <span class="tag">UNLOCKED BIOS</span>
+            <strong data-i18n="btnBios">Reboot to BIOS Setup (All 9 Tabs)</strong>
+            <small>SUNUEFI-EMBEDv1 target=3</small>
+          </button>
+        </div>
+      </section>
+
+      <section class="panel" id="tab-storage">
+        <h2 data-i18n="storageTitle">Combined Boot Selector & Stock Restore</h2>
+        <p class="muted" data-i18n="storageDesc">Back up stock Android boot v4, pack pre-UEFI touch BootSelect + Mu-Silicium FD, or restore byte-for-byte stock boot.</p>
+
+        <div class="row">
+          <label for="selTimeout" data-i18n="timeoutLabel">Pre-UEFI Selector Timeout (sec):</label>
+          <input id="selTimeout" type="number" min="0" max="15" value="3">
+        </div>
+
+        <div class="btn-col">
+          <button class="btn primary" id="btnRefresh" data-i18n="btnInspect">Inspect Active Boot Slot</button>
+          <button class="btn success" id="btnInstall" data-i18n="btnInstall">Backup Stock + Install Combined SunUEFI Boot</button>
+          <button class="btn warn" id="btnRestore" data-i18n="btnRestore">Restore Verified Stock Android Boot (RSTRv1)</button>
+        </div>
+      </section>
+
+      <section class="panel" id="tab-maint">
+        <h2 data-i18n="maintTitle">Hardware Reset Modes & Diagnostics</h2>
+        <p class="muted" data-i18n="maintDesc">PMK8550 SDAM reboot reasons, Qualcomm EDL 9008, NEXTv1 cleanup, and live command output.</p>
+        <div class="btn-col">
+          <button class="btn" id="btnClearReq" data-i18n="btnClearReq">Clear Pending NEXTv1 Request</button>
+          <button class="btn" data-reboot-raw="recovery" data-i18n="btnRecovery">Reboot Recovery</button>
+          <button class="btn" data-reboot-raw="bootloader" data-i18n="btnBootloader">Reboot Bootloader / Fastboot</button>
+          <button class="btn danger" data-reboot-raw="edl" data-i18n="btnEdl">Reboot Qualcomm EDL (9008)</button>
+        </div>
+      </section>
+    </main>
+
+    <section class="console">
+      <div class="console-head" data-i18n="consoleLabel">Output Log</div>
+      <pre id="logOut">Ready.</pre>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

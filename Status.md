@@ -9,14 +9,21 @@
 
 ### REDMAGIC Astra (nubia NP05J)
 
-The `nubia_np05j` DEBUG build reaches DXE on the 24 GiB SM8750 (Pakala) model. The on-device console shows a synchronous external abort in `SPMI.dll + 0x3740` during PMIC initialization, before Boot Device Selection.
+The `nubia_np05j` DEBUG build boots cleanly through DXE to Project Mu Boot Device Selection (BDS) on the 24 GiB SM8750 (Pakala) model using the 8-driver Pakala DXE patch set and `SimpleFbDxe` (`2400×1504×32` at `0xFC800000`).
 
 | Feature | Observation on NP05J | State |
 |:--------|:---------------------|:-----:|
-| DEBUG boot to BDS | SPMI channel status read at `0x0C7C7008` stops DXE | ❌ |
-| Display | Early debug text is visible. GOP mode and stride await measurement | ⚠️ |
-| Internal storage and side buttons | Await UEFI Block I/O reads and a button event | ❔ |
-| ACPI and OS boot | Tables build on the host. On-device ACPI, Linux ARM64 and Windows PE results are pending | ❔ |
+| DEBUG boot to BDS & UEFI Shell | Reaches Project Mu BDS and interactive UEFI Shell cleanly (`Mu-nubia_np05j-pakala-dxe-v7-apic-fix.img`) | ✅ |
+| Display | Early debug text and BDS/Shell GOP (`SimpleFbDxe`, `2400×1504×32` @ `0xFC800000`, stride `2400`) verified via `Np05jProbe.efi` (`GOP: Success`) | ✅ |
+| Full 24 GiB RAM & SMBIOS | `RamManagerDxe` verified via `memmap` (`23,082 MB` / `22.54 GiB` usable up to `0x0E00000000`, `22.44 GiB` Available, all reserved carveouts protected), `smbiosview -t 17` (`24576 MB` / `0x600000000` Micron LPDDR5), and `smbiosview -t 4` (`4320 MHz` via 64-bit `ClockDxe`, `Status 0x41` Populated/Enabled) | ✅ |
+| Internal storage (UFS 4.0) | `UFSDxe` + `IortDtDxe` cache coherency verified via `Np05jProbe.efi` on internal UFS LU0 LBA 1 (`CRC32 91933A59` ×2, `UFS read comparison: Success`, `BLK0..BLK109`) | ✅ |
+| Side buttons | `ButtonsDxe` verified via `Np05jProbe.efi`: Power → `0x000D` (Enter), Volume Up → `0x0001` (`SCAN_UP`) | ✅ |
+| USB Device Mode & USB UART | `UsbConfigDxe` + `Np05jUsbSerialDxe` (USB CDC-ACM `1209:0505`) verified on hardware via macOS `/dev/cu.usbmodem*`: streams full SEC/DXE/vendor boot logs from 256 KiB `Np05jLogRing` and provides bidirectional VT-UTF8 UEFI Shell (`TerminalDxe`) | ✅ |
+| USB Host Mode (OTG) | Passive USB-C peripherals do not receive 5 V VBUS in UEFI because PMIC SID 7 (`pmih010x`) OTG boost is ADSP/GLink-owned | ❌ |
+| ACPI tables | All 9 ACPI tables (`RSDP`, `XSDT`, `FACP`, `DSDT`, `IORT`, `APIC`, `GTDT`, `PPTT`, `BGRT`) verified via `acpiview` (`0 Error(s), 0 Warning(s)`); `Pakala/APIC.aml` uses per-GICC `0x40000`-stride GICR bases (`0x16080000..0x16240000`); expanded `DSDT.asl` (`USB0`/`GIO0`/`SPI4`/`TPL0 SYNA3930`/`PWRB`/`BTNS`) + `MCFG`/`SPCR`/`DBG2` compiled via `iasl` | ✅ |
+| SunUEFI Touch & Boot Menu | `Np05jTouchDxe` (Synaptics S3930 TCM v2 SPI4 + `AbsolutePointer`), `Np05jSplashLib` (vector splash + touch pills + BGRT), `Np05jGraphicsConsoleDxe` (scaled console), `Np05jBootMenuApp` (3×3 touch Boot Menu, 9-category Unlocked BIOS Setup, Touch Test, File Browser, built-in UEFI Shell), `Np05jBootManagerLib`, `Np05jRealTimeClockLib`, `Np05jAcpiUpdateLib`, pre-UEFI `BootSelect` (`np05j-bootselect.bin` + `RelocShim`), and `NP05J-SunUEFI-Helper.zip` (KSU/SukiSU WebUI + static arm64 `np05j-boot-repack`) — built (`DEBUG`/`RELEASE` UEFI) & host unit-tested; pending on-device flash verification | ❔ |
+| Linux Boot (ACPI) | Mainline Linux `6.12.118` ARM64 (`EFI_ZBOOT` + BusyBox initramfs from `logfs`) boots cleanly over pure ACPI **with EFI Runtime Services enabled** (`BOOTRT.NSH`, no `efi=noruntime`) to interactive BusyBox shell on OLED `efifb`/`fbcon` (`PSCIv1.1` SMP, `GICv3`, `arch_timer` 19.2 MHz cp15+MMIO, `SMBIOS`, `QCOM24A5:00` ACPI enumerated; generic Linux `arm_smmu` triggers QHEE/TZ memdump without `qcom_smmu` ACPI/DT quirk) | ✅ |
+| Linux Boot (Device Tree) | Mainline Linux `7.3.5` ARM64 + `sm8750-nubia-np05j.dtb` (`BOOTDT.NSH`) boots in `< 1s` on OLED `efifb` (`2400×1504`) with `0` functional deferred devices (`109ab000.tn` CoreSight only): 8 Oryon cores + SCMI CPUfreq (`3.53/4.09 GHz`), full `24 GiB` RAM, QSMMU-v500 (`15000000.iommu`), full 1 TB KIOXIA UFS 4.0 (`sda`–`sdf`, 115 partitions, `modem_b`/`bluetooth_b`/`dsp_b` ro-mounted), **Bluetooth `hci0 UP` (`WCN7861` / `BRAHMA 2.0` `0x40210200` on `uart14` @ `3.2 Mbps` via Peri SetBaudRate, `brhbtfw20.tlv` + `brhbtnv20.bin`, BD_ADDR `78:55:00:01:5A:AD`)**, **ADSP & CDSP (`remoteproc0`/`1` running) + Hexagon HTP NPU (`/dev/fastrpc-cdsp`)**, **`pmic-glink` + `qcom_battmgr` live battery (`100%`, `4.416 V`, `Charging`) + `UCSI` Type-C (`port0`, `port0-partner`)**, **PCIe0 Gen3 link trained (`0x17cb:0x110e` FastConnect 7900 Peach enumerated)**, **Synaptics `S3930TB0A0` (TCM v2, `15040×24000`, 10-finger) live over `SPI4` + `gpi_dma1`** (`L4B` 1.8V & `L14B` 3.2V), **REDMAGIC active cooling fan (`pwm-fan` + tachometer `0..27,656 RPM`)**, **Dual NXP `TFA9874` Rev C speaker amps (`0x34`/`0x35` on `/dev/i2c-0`, reg `0x03 = 0x740c`)**, USB-C High-Speed CDC-ACM (`/dev/ttyGS0` root shell), `spmi_pmic_arb` v7, `rtc0`, Power/Vol-/Vol+, and `tsens` | ✅ |
 
 ## Supported Devices
 

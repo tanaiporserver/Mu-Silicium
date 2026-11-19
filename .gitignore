@@ -2,6 +2,7 @@ __pycache__
 .vscode
 Build
 Conf
+Device_np05j
 
 bootpayload.bin
 BootShim.bin

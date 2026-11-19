@@ -1,0 +1,53 @@
+## @file
+#  NP05J USB CDC-ACM Virtual Serial (UART over USB) DXE Driver.
+#
+#  Binds to Qualcomm UsbfnDwc3Dxe (EFI_USBFN_IO_PROTOCOL) to expose a standard
+#  USB CDC-ACM serial port (/dev/ttyACM0 / COMx) for:
+#    1. Streaming full SEC/DXE/vendor low-level debug logs from Np05jLogRing
+#    2. Bidirectional UEFI Console / Shell TTY via EFI_SERIAL_IO_PROTOCOL + TerminalDxe
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = Np05jUsbSerialDxe
+  FILE_GUID                      = 4D93F6E2-1B7A-4C6E-8F14-9D0A5E2C7B11
+  MODULE_TYPE                    = UEFI_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = Np05jUsbSerialDriverEntry
+
+[Sources]
+  Np05jUsbSerialDxe.h
+  Np05jUsbSerialDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  SiliciumPkg/SiliciumPkg.dec
+  nubia_np05jPkg/nubia_np05j.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  MemoryAllocationLib
+  MemoryMapHelperLib
+  PrintLib
+  UefiBootManagerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gEfiEndOfDxeEventGroupGuid
+  gEfiEventExitBootServicesGuid
+  gEfiVTUTF8Guid
+
+[Protocols]
+  gEfiDevicePathProtocolGuid
+  gEfiDriverBindingProtocolGuid
+  gEfiSerialIoProtocolGuid
+  gEfiUsbFunctionIoProtocolGuid

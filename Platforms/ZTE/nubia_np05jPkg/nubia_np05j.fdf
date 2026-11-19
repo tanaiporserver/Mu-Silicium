@@ -83,7 +83,8 @@ READ_LOCK_STATUS   = TRUE
   !include Include/DXE.inc
   !include Include/RAW.inc
 
-  # MemoryMapLib describes the available bring-up heap.
+  # RAM Manager (reads Qualcomm SMEM RAM partition table to expose full 24 GiB RAM)
+  INF SiliciumPkg/Drivers/RamManagerDxe/RamManagerDxe.inf
 
   # SmBios
   INF MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
@@ -96,6 +97,10 @@ READ_LOCK_STATUS   = TRUE
 
   # IORT DT
   INF QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf
+
+  # Touch-first Boot Menu, Unlocked BIOS Setup & Built-in UEFI Shell
+  INF nubia_np05jPkg/Application/Np05jBootMenuApp/Np05jBootMenuApp.inf
+  INF ShellPkg/Application/Shell/Shell.inf
 
   !include SiliciumPkg/Extra.fdf.inc
 
