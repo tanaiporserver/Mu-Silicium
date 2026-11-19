@@ -268,7 +268,7 @@ mSmBiosType4 = {
     // Processor Characteristics
     //
     .ProcessorCharacteristics = BIT2 | BIT9,
-    .Status                   = BIT0 | BIT1,
+    .Status                   = BIT6 | BIT0,
 
     //
     // Processor Cache Handles

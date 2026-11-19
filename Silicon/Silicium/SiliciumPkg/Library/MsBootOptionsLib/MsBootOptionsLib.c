@@ -32,7 +32,7 @@ BuildFwLoadOption (
   // Get Defined Application Name from FV
   Status = GetSectionFromFv (FwFile, EFI_SECTION_USER_INTERFACE, 0, (VOID *)&Description, &DescriptionLength);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "%a: Failed to Get Application Name of %a! Status = %r\n", __FUNCTION__, FwFile, Status));
+    DEBUG ((EFI_D_ERROR, "%a: Failed to Get Application Name of %g! Status = %r\n", __FUNCTION__, FwFile, Status));
     return Status;
   }
 
@@ -132,7 +132,7 @@ CreateFvBootOption (
   // Read EFI Application Section
   Status = mFv2Protocol->ReadSection (mFv2Protocol, FileGuid, EFI_SECTION_PE32, 0, &Buffer, &Size, &AuthenticationStatus);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "%a: Failed to Read EFI Application Section from %a! Status = %r\n", __FUNCTION__, FileGuid, Status));
+    DEBUG ((EFI_D_ERROR, "%a: Failed to Read EFI Application Section from %g! Status = %r\n", __FUNCTION__, FileGuid, Status));
     return Status;
   }
 
@@ -150,7 +150,7 @@ CreateFvBootOption (
   // Init Boot Option
   Status = EfiBootManagerInitializeLoadOption (BootOption, LoadOptionNumberUnassigned, LoadOptionTypeBoot, Attributes, Description, DevicePath, OptionalData, OptionalDataSize);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "%a: Failed to Init Boot Option for %a! Status = %r\n", __FUNCTION__, FileGuid, Status));
+    DEBUG ((EFI_D_ERROR, "%a: Failed to Init Boot Option for %g! Status = %r\n", __FUNCTION__, FileGuid, Status));
 
     // Free Buffers
     FreePool (Buffer);

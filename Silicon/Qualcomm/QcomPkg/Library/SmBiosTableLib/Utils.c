@@ -15,6 +15,59 @@ STATIC EFI_CLOCK_PROTOCOL      *mClockProtocol    = NULL;
 STATIC EFI_CHIPINFO_PROTOCOL   *mChipInfoProtocol = NULL;
 STATIC EFI_DDRGETINFO_PROTOCOL *mDdrInfoProtocol  = NULL;
 
+STATIC_ASSERT (
+  OFFSET_OF (EFI_CLOCK_PROTOCOL, GetCpuPerfLevelFrequency64) == 0x110,
+  "EFI_CLOCK_PROTOCOL::GetCpuPerfLevelFrequency64 offset mismatch"
+  );
+
+STATIC
+EFI_STATUS
+GetClusterPerfLevelFreqMHz (
+  IN  UINT32  Cluster,
+  IN  UINT32  PerformanceLevel,
+  OUT UINT16 *FreqMHz)
+{
+  EFI_STATUS Status;
+
+  if (mClockProtocol->Version >= EFI_CLOCK_PROTOCOL_VERSION_64BIT &&
+      mClockProtocol->GetCpuPerfLevelFrequency64 != NULL)
+  {
+    UINT64 FreqHz          = 0;
+    UINT64 RequiredVoltage = 0;
+
+    Status = mClockProtocol->GetCpuPerfLevelFrequency64 (
+               mClockProtocol,
+               Cluster,
+               PerformanceLevel,
+               &FreqHz,
+               &RequiredVoltage
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+
+    *FreqMHz = (UINT16)(FreqHz / 1000000ULL);
+    return EFI_SUCCESS;
+  }
+
+  UINT32 FreqHz          = 0;
+  UINT32 RequiredVoltage = 0;
+
+  Status = mClockProtocol->GetCpuPerfLevelFrequency (
+             mClockProtocol,
+             Cluster,
+             PerformanceLevel,
+             &FreqHz,
+             &RequiredVoltage
+             );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  *FreqMHz = (UINT16)(FreqHz / 1000000U);
+  return EFI_SUCCESS;
+}
+
 EFI_STATUS
 GetClusterSpeeds (
   IN  UINT32  Cluster,
@@ -22,8 +75,10 @@ GetClusterSpeeds (
   OUT UINT16 *CurrentSpeed)
 {
   EFI_STATUS Status;
-  UINT32     PerformanceLevel[2];
-  UINT32     Freq[2];
+  UINT32     MaxPerfLevel     = 0;
+  UINT32     CurrentPerfLevel = 0;
+  UINT16     MaxFreqMHz       = 0;
+  UINT16     CurrentFreqMHz   = 0;
 
   // Verify Protocol Presense
   if (mClockProtocol == NULL) {
@@ -36,31 +91,38 @@ GetClusterSpeeds (
   }
 
   // Get Max Performance Level
-  Status = mClockProtocol->GetMaxPerfLevel (mClockProtocol, Cluster, &PerformanceLevel[0]);
+  Status = mClockProtocol->GetMaxPerfLevel (mClockProtocol, Cluster, &MaxPerfLevel);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  // Get Current Performance Level
-  Status = mClockProtocol->GetCpuPerfLevel (mClockProtocol, Cluster, &PerformanceLevel[1]);
-  if (EFI_ERROR (Status)) {
-    return Status;
+  // Convert Max Performance Level to MHz
+  Status = GetClusterPerfLevelFreqMHz (Cluster, MaxPerfLevel, &MaxFreqMHz);
+  if (EFI_ERROR (Status) && MaxPerfLevel > 0) {
+    // Newer ClockDxe (e.g. Pakala) returns level count N from GetMaxPerfLevel
+    // while valid performance level indices are [0 .. N - 1].
+    Status = GetClusterPerfLevelFreqMHz (Cluster, MaxPerfLevel - 1, &MaxFreqMHz);
+  }
+  if (EFI_ERROR (Status) || MaxFreqMHz == 0) {
+    return EFI_ERROR (Status) ? Status : EFI_DEVICE_ERROR;
   }
 
-  // Go thru each Performance Level
-  for (UINT8 i = 0; i < 2; i++) {
-    UINT32 RequiredVoltage;
-
-    // Convert Performance Level
-    Status = mClockProtocol->GetCpuPerfLevelFrequency (mClockProtocol, Cluster, PerformanceLevel[i], &Freq[i], &RequiredVoltage);
-    if (EFI_ERROR (Status)) {
-      return Status;
+  // Get Current Performance Level (fall back to MaxSpeed when SCMI LevelGet is unsupported)
+  Status = mClockProtocol->GetCpuPerfLevel (mClockProtocol, Cluster, &CurrentPerfLevel);
+  if (!EFI_ERROR (Status)) {
+    Status = GetClusterPerfLevelFreqMHz (Cluster, CurrentPerfLevel, &CurrentFreqMHz);
+    if (EFI_ERROR (Status) && CurrentPerfLevel > 0) {
+      Status = GetClusterPerfLevelFreqMHz (Cluster, CurrentPerfLevel - 1, &CurrentFreqMHz);
     }
   }
 
+  if (EFI_ERROR (Status) || CurrentFreqMHz == 0) {
+    CurrentFreqMHz = MaxFreqMHz;
+  }
+
   // Pass Cluster Speeds
-  *MaxSpeed     = Freq[0] / 1000000;
-  *CurrentSpeed = Freq[1] / 1000000;
+  *MaxSpeed     = MaxFreqMHz;
+  *CurrentSpeed = CurrentFreqMHz;
 
   return EFI_SUCCESS;
 }

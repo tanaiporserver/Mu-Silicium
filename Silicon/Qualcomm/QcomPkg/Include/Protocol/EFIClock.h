@@ -41,7 +41,8 @@
 /**
   Protocol version.
 */
-#define EFI_CLOCK_PROTOCOL_VERSION 0x0000000000010009
+#define EFI_CLOCK_PROTOCOL_VERSION       0x0000000000010009
+#define EFI_CLOCK_PROTOCOL_VERSION_64BIT 0x000000000001000B
 
 /**
    Test Clock Protocol version.
@@ -1060,6 +1061,33 @@ EFI_STATUS
   IN  UINT32                   nLogMask
 );
 
+typedef
+EFI_STATUS
+(EFIAPI *EFI_GET_CPU_PERF_LEVEL_FREQUENCY64)(
+  IN  EFI_CLOCK_PROTOCOL *This,
+  IN  UINT32              nCPU,
+  IN  UINT32              nPerfLevel,
+  OUT UINT64             *pnFrequencyHz,
+  OUT UINT64             *pnRequiredVoltage
+  );
+
+typedef
+EFI_STATUS
+(EFIAPI *EFI_SET_CPU_FREQUENCY64)(
+  IN  EFI_CLOCK_PROTOCOL *This,
+  IN  UINT32              nCPU,
+  IN  UINT64              nFrequencyHz,
+  OUT UINT64             *pnResultFreqHz
+  );
+
+typedef
+EFI_STATUS
+(EFIAPI *EFI_GET_CPU_FREQUENCY64)(
+  IN  EFI_CLOCK_PROTOCOL *This,
+  IN  UINT32              nCPU,
+  OUT UINT64             *pnFrequencyHz
+  );
+
 /*===========================================================================
   PROTOCOL INTERFACE
 ===========================================================================*/
@@ -1071,38 +1099,43 @@ EFI_STATUS
   @inputprotoparams{clock_proto_params.tex}
 */
 struct _EFI_CLOCK_PROTOCOL {
-   UINT64                           Version;
-   EFI_CLOCK_GET_ID                 GetClockID;
-   EFI_CLOCK_ENABLE                 EnableClock;
-   EFI_CLOCK_DISABLE                DisableClock;
-   EFI_CLOCK_IS_ENABLED             IsClockEnabled;
-   EFI_CLOCK_IS_ON                  IsClockOn;
-   EFI_CLOCK_SET_FREQ_HZ            SetClockFreqHz;
-   EFI_CLOCK_GET_FREQ_HZ            GetClockFreqHz;
-   EFI_CLOCK_CALC_FREQ_HZ           CalcClockFreqHz;
-   EFI_CLOCK_SELECT_EXTERNAL_SOURCE SelectExternalSource;
-   EFI_POWER_DOMAIN_GET_ID          GetClockPowerDomainID;
-   EFI_POWER_DOMAIN_ENABLE          EnableClockPowerDomain;
-   EFI_POWER_DOMAIN_DISABLE         DisableClockPowerDomain;
-   EFI_CLOCK_ENTER_LOW_POWER_MODE   EnterLowPowerMode;
-   EFI_CLOCK_EXIT_LOW_POWER_MODE    ExitLowPowerMode;
-   EFI_CLOCK_SET_CLOCK_DIVIDER      SetClockDivider;
-   EFI_CLOCK_RESET                  ResetClock;
-   EFI_GET_MAX_PERF_LEVEL           GetMaxPerfLevel;
-   EFI_GET_MIN_PERF_LEVEL           GetMinPerfLevel;
-   EFI_GET_CPU_PERF_LEVEL_FREQUENCY GetCpuPerfLevelFrequency;
-   EFI_SET_CPU_PERF_LEVEL           SetCpuPerfLevel;
-   EFI_GET_CPU_PERF_LEVEL           GetCpuPerfLevel;
-   EFI_GET_CPU_FREQUENCY_LEVELS     GetCPUFrequencyLevels;
-   EFI_GET_CPU_FREQUECNY_PLAN       GetCPUFrequencyPlan;
-   EFI_SET_CPU_FREQUENCY            SetCPUFrequency;
-   EFI_GET_CPU_FREQUENCY            GetCPUFrequency;
-   EFI_CLOCK_POST_INIT              PostInit;
-   EFI_CLOCK_DIVIDER_GET_ID         GetClockDividerID;
-   EFI_CLOCK_RESET_BRANCH           ResetClockBranch;
-   EFI_CLOCK_INVERT                 InvertClock;
-   EFI_CLOCK_MEASURE_FREQ_HZ        MeasureFreqHz;
-   EFI_GET_ID                       GetID;
+   UINT64                             Version;
+   EFI_CLOCK_GET_ID                   GetClockID;
+   EFI_CLOCK_ENABLE                   EnableClock;
+   EFI_CLOCK_DISABLE                  DisableClock;
+   EFI_CLOCK_IS_ENABLED               IsClockEnabled;
+   EFI_CLOCK_IS_ON                    IsClockOn;
+   EFI_CLOCK_SET_FREQ_HZ              SetClockFreqHz;
+   EFI_CLOCK_GET_FREQ_HZ              GetClockFreqHz;
+   EFI_CLOCK_CALC_FREQ_HZ             CalcClockFreqHz;
+   EFI_CLOCK_SELECT_EXTERNAL_SOURCE   SelectExternalSource;
+   EFI_POWER_DOMAIN_GET_ID            GetClockPowerDomainID;
+   EFI_POWER_DOMAIN_ENABLE            EnableClockPowerDomain;
+   EFI_POWER_DOMAIN_DISABLE           DisableClockPowerDomain;
+   EFI_CLOCK_ENTER_LOW_POWER_MODE     EnterLowPowerMode;
+   EFI_CLOCK_EXIT_LOW_POWER_MODE      ExitLowPowerMode;
+   EFI_CLOCK_SET_CLOCK_DIVIDER        SetClockDivider;
+   EFI_CLOCK_RESET                    ResetClock;
+   EFI_GET_MAX_PERF_LEVEL             GetMaxPerfLevel;
+   EFI_GET_MIN_PERF_LEVEL             GetMinPerfLevel;
+   EFI_GET_CPU_PERF_LEVEL_FREQUENCY   GetCpuPerfLevelFrequency;
+   EFI_SET_CPU_PERF_LEVEL             SetCpuPerfLevel;
+   EFI_GET_CPU_PERF_LEVEL             GetCpuPerfLevel;
+   EFI_GET_CPU_FREQUENCY_LEVELS       GetCPUFrequencyLevels;
+   EFI_GET_CPU_FREQUECNY_PLAN         GetCPUFrequencyPlan;
+   EFI_SET_CPU_FREQUENCY              SetCPUFrequency;
+   EFI_GET_CPU_FREQUENCY              GetCPUFrequency;
+   EFI_CLOCK_POST_INIT                PostInit;
+   EFI_CLOCK_DIVIDER_GET_ID           GetClockDividerID;
+   EFI_CLOCK_RESET_BRANCH             ResetClockBranch;
+   EFI_CLOCK_INVERT                   InvertClock;
+   EFI_CLOCK_MEASURE_FREQ_HZ          MeasureFreqHz;
+   EFI_GET_ID                         GetID;
+   VOID                              *Reserved1000A_0;
+   VOID                              *Reserved1000A_1;
+   EFI_GET_CPU_PERF_LEVEL_FREQUENCY64 GetCpuPerfLevelFrequency64;
+   EFI_SET_CPU_FREQUENCY64            SetCPUFrequency64;
+   EFI_GET_CPU_FREQUENCY64            GetCPUFrequency64;
 };
 
 /*===========================================================================
