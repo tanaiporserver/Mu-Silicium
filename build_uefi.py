@@ -192,6 +192,7 @@ def compile_boot_shim (boot_shim_config: dict, fd_config: dict) -> bool:
     cmd = [
         "make",
         f"REQUIRES_KERNEL_HEADER={int (requires_kernel_header)}",
+        f"IN_PLACE={int (boot_shim_config.get ('in_place', False))}",
         f"FD_BASE={fd_base}",
         f"FD_SIZE={fd_size}"
     ]
@@ -328,9 +329,11 @@ def create_android_boot_img (ctx: BuildContext, image_kernel_config: dict, image
     cmd = [
         sys.executable, str (mkbootimg),
         "--kernel",     str (android_kernel),
-        "--ramdisk",    "Resources/ramdisk",
         "-o",           output_file_name
     ]
+
+    if image_config.get ("include_ramdisk", True):
+        cmd.extend (["--ramdisk", "Resources/ramdisk"])
 
     # mkbootimg Argument Map
     argument_map = {
