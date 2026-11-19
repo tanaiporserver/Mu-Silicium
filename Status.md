@@ -5,6 +5,19 @@
 | ❌     | Not Working |
 | ❔     | Unknown     |
 
+## Ports in development
+
+### REDMAGIC Astra (nubia NP05J)
+
+The `nubia_np05j` DEBUG build reaches DXE on the 24 GiB SM8750 (Pakala) model. The on-device console shows a synchronous external abort in `SPMI.dll + 0x3740` during PMIC initialization, before Boot Device Selection.
+
+| Feature | Observation on NP05J | State |
+|:--------|:---------------------|:-----:|
+| DEBUG boot to BDS | SPMI channel status read at `0x0C7C7008` stops DXE | ❌ |
+| Display | Early debug text is visible. GOP mode and stride await measurement | ⚠️ |
+| Internal storage and side buttons | Await UEFI Block I/O reads and a button event | ❔ |
+| ACPI and OS boot | Tables build on the host. On-device ACPI, Linux ARM64 and Windows PE results are pending | ❔ |
+
 ## Supported Devices
 
 <details>
