@@ -17,9 +17,10 @@ STATIC CONST NP05J_SPLASH_POINT mSpokes[6] = {
   { 0,  1000 }, { -866, 500 }, { -866, -500 }
 };
 
-STATIC CONST CHAR8 mBrand[]    = "tianocore";
-STATIC CONST CHAR8 mSubtitle[] = "REDMAGIC Astra / NP05J (SM8750)";
-STATIC CONST CHAR8 mSetupHint[] = "Tap any pill below   |   Vol Up: Boot Menu   |   Vol Down: BIOS Setup";
+STATIC CONST CHAR8 mBrand[]          = "tianocore";
+STATIC CONST CHAR8 mSubtitle[]       = "SunUEFI / NP05J";
+STATIC CONST CHAR8 mSetupHintLine1[] = "F12: BIOS Setup   Esc: Boot Menu";
+STATIC CONST CHAR8 mSetupHintLine2[] = "Volume +/-: Navigate   Power: Select / Confirm";
 
 STATIC CONST NP05J_SPLASH_POINT mCircle[32] = {
   { 1000, 0 }, { 981, 195 }, { 924, 383 }, { 831, 556 },

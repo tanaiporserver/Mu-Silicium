@@ -102,6 +102,10 @@ READ_LOCK_STATUS   = TRUE
   INF nubia_np05jPkg/Application/Np05jBootMenuApp/Np05jBootMenuApp.inf
   INF ShellPkg/Application/Shell/Shell.inf
 
+  # Genuine Project SunUEFI TianoCore Setup (UiApp + DisplayEngineDxe)
+  INF MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+  INF MdeModulePkg/Application/UiApp/UiApp.inf
+
   !include SiliciumPkg/Extra.fdf.inc
 
 [FV.FVMAIN_COMPACT]

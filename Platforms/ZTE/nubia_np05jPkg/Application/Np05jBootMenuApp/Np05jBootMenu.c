@@ -1,29 +1,32 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent */
 /** @file
-  Main Entry & Touch-First 3x3 Tile UEFI Boot Menu for nubia NP05J.
+  Main Entry & SunUEFI Light Touch-First UEFI Boot Menu for nubia NP05J.
 **/
 
 #include "Np05jBootMenuApp.h"
 
-#define TILE_COUNT 9U
+#define STARTUP_COUNT 6U
+#define UTIL_COUNT    4U
+#define ITEM_COUNT    (STARTUP_COUNT + UTIL_COUNT)
 
 typedef struct {
-  CONST CHAR8                  *Title;
-  CONST CHAR8                  *Subtitle;
-  CONST CHAR8                  *Tag;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Accent;
-} NP05J_BOOT_TILE;
+  CONST CHAR8 *Title;
+  CONST CHAR8 *Subtitle;
+} NP05J_BOOT_ITEM;
 
-STATIC CONST NP05J_BOOT_TILE mBootTiles[TILE_COUNT] = {
-  { "Windows 11 ARM",   "Scan FS* for bootmgfw.efi (WoA ACPI)", "WOA",    { 0xF8, 0xBD, 0x38, 0 } },
-  { "Linux (DeviceTree)","Boot GRUB / systemd-boot / UKI (DTB)", "LINUX",  { 0x81, 0xB9, 0x10, 0 } },
-  { "Linux (ACPI)",     "Boot Linux ARM64 via ACPI tables",      "ACPI",   { 0xF7, 0x55, 0xA8, 0 } },
-  { "Android Boot",     "Cold reset back to active Android slot", "HLOS",   { 0x0B, 0x9E, 0xF5, 0 } },
-  { "BIOS Setup",       "Unlocked All-Options Firmware Utility", "UNLOCK", { 0xF8, 0xBD, 0x38, 0 } },
-  { "Boot From File",   "Browse FAT/ESP & launch any .EFI image", "FILE",   { 0xB8, 0x94, 0x64, 0 } },
-  { "UEFI Shell",       "Launch built-in EDK2 Interactive Shell", "SHELL",  { 0x81, 0xB9, 0x10, 0 } },
-  { "Touch Test",       "Synaptics S3930 canvas & 4-corner cal", "TOUCH",  { 0xF8, 0xBD, 0x38, 0 } },
-  { "Power & Reboot",   "Normal / Recovery / Fastboot / EDL 9008", "PWR",   { 0x44, 0x44, 0xEF, 0 } }
+STATIC CONST NP05J_BOOT_ITEM mBootItems[ITEM_COUNT] = {
+  /* Stacked SELECT STARTUP rows (0..5) */
+  { "ANDROID",                  "Stock Android HLOS (Cold Reset)" },
+  { "WINDOWS 11 ARM",           "Scan FS* for bootmgfw.efi (WoA ACPI)" },
+  { "LINUX (DEVICETREE)",       "Boot GRUB / systemd-boot / UKI (DTB)" },
+  { "LINUX (ACPI)",             "Boot ARM64 Linux via ACPI Tables" },
+  { "BIOS SETUP (UNLOCKED)",    "All 9 Categories Unlocked + S3930 Calibration" },
+  { "TIANOCORE SETUP (UIAPP)",  "Genuine Project SunUEFI EDK2 Firmware Setup" },
+  /* Utility pills below startup stack (6..9) */
+  { "UEFI SHELL",               "Built-in Shell" },
+  { "BOOT FILE (.EFI)",         "Browse FAT / ESP" },
+  { "TOUCH TEST",               "S3930 Diagnostics" },
+  { "POWER / RESET",            "Recovery / EDL" }
 };
 
 STATIC
@@ -51,22 +54,29 @@ RunPowerModal (
     NP05J_INPUT_EVENT Ev;
 
     if (Redraw) {
-      Np05jUiDrawCard (Ctx, Box, COL_PANEL, COL_RED, 4);
-      Np05jUiDrawTextCentered (Ctx, (NP05J_RECT){ Box.X, Box.Y + 28, Box.W, 60 }, 3, COL_RED, "POWER & HARDWARE RESET MODE");
-      Np05jUiDrawTextCentered (Ctx, (NP05J_RECT){ Box.X, Box.Y + 86, Box.W, 40 }, 2, COL_SUBTEXT, "PMK8550 SDAM0x71 / TCSR SCM 9008");
+      Np05jUiDrawRoundedCard (Ctx, Box, 20, COL_PANEL, COL_BORDER, 3);
+      Np05jUiDrawText5x7Centered (Ctx, (NP05J_RECT){ Box.X, Box.Y + 34, Box.W, 56 }, 4U, COL_TEXT, "POWER & HARDWARE RESET MODE");
+      Np05jUiDrawText5x7Centered (Ctx, (NP05J_RECT){ Box.X, Box.Y + 94, Box.W, 36 }, 2U, COL_SUBTEXT, "PMK8550 SDAM0x71 / TCSR SCM 9008");
 
       for (UINTN I = 0; I < 6U; I++) {
         Btns[I] = (NP05J_RECT){ Box.X + 80, Box.Y + 150 + (INT32)I * 124, Box.W - 160, 102 };
         {
           BOOLEAN Sel = ((INTN)I == Focus);
-          Np05jUiDrawCard (
+          Np05jUiDrawRoundedCard (
             Ctx,
             Btns[I],
-            Sel ? COL_CARD_HI : COL_CARD,
+            14,
+            (I == 3U && !Sel) ? COL_RED_BG : (Sel ? COL_CARD_HI : COL_CARD),
             (I == 3U) ? COL_GOLD : (Sel ? COL_ACCENT : COL_BORDER),
-            Sel ? 3 : 2
+            Sel ? 4 : 2
             );
-          Np05jUiDrawTextCentered (Ctx, Btns[I], 2, (I == 5U) ? COL_SUBTEXT : COL_TEXT, mPwrLabels[I]);
+          Np05jUiDrawText5x7Centered (
+            Ctx,
+            Btns[I],
+            3U,
+            (I == 5U) ? COL_SUBTEXT : (Sel ? COL_ACCENT_DARK : COL_TEXT),
+            mPwrLabels[I]
+            );
         }
       }
       Np05jUiPresent (Ctx);
@@ -124,6 +134,80 @@ RunPowerModal (
 }
 
 STATIC
+CONST CHAR8 *
+FastbootSpeedStr (
+  IN UINT8 Speed
+  )
+{
+  switch (Speed) {
+    case 1: return "LS";
+    case 2: return "FS";
+    case 3: return "HS";
+    case 4: return "SS";
+    case 5: return "SSP";
+    default: return "WAIT";
+  }
+}
+
+STATIC
+VOID
+HandleFastbootAction (
+  IN OUT NP05J_UI_CTX          *Ctx,
+  IN     NP05J_FASTBOOT_ACTION  Action
+  )
+{
+  BOOLEAN RebootReq = FALSE;
+
+  switch (Action) {
+    case Np05jFbActionOpenSetup:
+      Np05jRunBiosSetup (Ctx, &RebootReq);
+      break;
+    case Np05jFbActionOpenShell:
+      Np05jLaunchEfiShell (Ctx);
+      break;
+    case Np05jFbActionOpenBootMenu:
+      Np05jUiSetBanner (Ctx, COL_ACCENT, "Fastboot: SunUEFI Boot Menu active");
+      break;
+    case Np05jFbActionBootStable:
+      switch (Ctx->Config.DefaultOs) {
+        case NP05J_OS_WINDOWS_ARM:
+          Np05jLaunchWindowsArm (Ctx);
+          break;
+        case NP05J_OS_LINUX_DT:
+          Np05jLaunchLinux (Ctx, FALSE);
+          break;
+        case NP05J_OS_LINUX_ACPI:
+          Np05jLaunchLinux (Ctx, TRUE);
+          break;
+        case NP05J_OS_ANDROID:
+          Np05jExecuteReset (Np05jResetNormal);
+          break;
+        case NP05J_OS_UEFI_SHELL:
+          Np05jLaunchEfiShell (Ctx);
+          break;
+        case NP05J_OS_BOOT_MENU:
+        default:
+          if (EFI_ERROR (Np05jLaunchLinux (Ctx, FALSE))) {
+            Np05jLaunchWindowsArm (Ctx);
+          }
+          break;
+      }
+      break;
+    case Np05jFbActionReboot:
+    case Np05jFbActionContinue:
+      if (Ctx->ConfigModified) {
+        Np05jBiosConfigSave (&Ctx->Config);
+        Ctx->ConfigModified = FALSE;
+      }
+      Np05jExecuteReset (Np05jResetNormal);
+      break;
+    default:
+      break;
+  }
+  Np05jUiDrainInput (Ctx);
+}
+
+STATIC
 VOID
 ActivateTile (
   IN OUT NP05J_UI_CTX *Ctx,
@@ -134,30 +218,33 @@ ActivateTile (
 
   switch (Index) {
     case 0:
-      Np05jLaunchWindowsArm (Ctx);
+      Np05jExecuteReset (Np05jResetNormal);
       break;
     case 1:
-      Np05jLaunchLinux (Ctx, FALSE);
+      Np05jLaunchWindowsArm (Ctx);
       break;
     case 2:
-      Np05jLaunchLinux (Ctx, TRUE);
+      Np05jLaunchLinux (Ctx, FALSE);
       break;
     case 3:
-      Np05jExecuteReset (Np05jResetNormal);
+      Np05jLaunchLinux (Ctx, TRUE);
       break;
     case 4:
       Np05jRunBiosSetup (Ctx, &RebootReq);
       break;
     case 5:
-      Np05jRunFileBrowser (Ctx);
+      Np05jLaunchTianoSetup (Ctx);
       break;
     case 6:
       Np05jLaunchEfiShell (Ctx);
       break;
     case 7:
-      Np05jRunTouchTest (Ctx);
+      Np05jRunFileBrowser (Ctx);
       break;
     case 8:
+      Np05jRunTouchTest (Ctx);
+      break;
+    case 9:
       RunPowerModal (Ctx);
       break;
     default:
@@ -227,74 +314,126 @@ UefiMain (
   Np05jUiDrainInput (&Ctx);
 
   while (TRUE) {
-    NP05J_RECT        TileRect[TILE_COUNT];
-    NP05J_RECT        QuickStrip[4];
+    NP05J_RECT        ItemRect[ITEM_COUNT];
     NP05J_INPUT_EVENT Ev;
-    INT32             GridX = 48;
-    INT32             GridY = 152;
-    INT32             GapX  = 36;
-    INT32             GapY  = 32;
-    INT32             TileW = ((INT32)Ctx.ScreenW - (GridX * 2) - (GapX * 2)) / 3;
-    INT32             TileH = ((INT32)Ctx.ScreenH - 370 - (GapY * 2)) / 3;
+    INT32             ColX    = 420;
+    INT32             ColW    = 1560;
+    INT32             StartY  = 314;
 
-    for (UINTN I = 0; I < TILE_COUNT; I++) {
-      INT32 Row = (INT32)(I / 3U);
-      INT32 Col = (INT32)(I % 3U);
-      TileRect[I] = (NP05J_RECT){
-        GridX + Col * (TileW + GapX),
-        GridY + Row * (TileH + GapY),
-        TileW,
-        TileH
-      };
+    for (UINTN I = 0; I < STARTUP_COUNT; I++) {
+      ItemRect[I] = (NP05J_RECT){ ColX, StartY + (INT32)I * 122, ColW, 108 };
     }
-
-    for (UINTN Q = 0; Q < 4U; Q++) {
-      QuickStrip[Q] = (NP05J_RECT){ 48 + (INT32)Q * 580, (INT32)Ctx.ScreenH - 186, 560, 74 };
+    for (UINTN U = 0; U < UTIL_COUNT; U++) {
+      ItemRect[STARTUP_COUNT + U] = (NP05J_RECT){ ColX + (INT32)U * (372 + 24), 1074, 372, 88 };
     }
 
     if (NeedRedraw) {
-      CHAR8 Sub[120];
+      CHAR8                      PillTxt[112];
+      NP05J_TOUCH_INFO_PROTOCOL *TouchInfo = NULL;
+      NP05J_TOUCH_TELEMETRY      Telem;
+      NP05J_FASTBOOT_STATUS      FbStatus;
+      BOOLEAN                    Bat = FALSE;
+      BOOLEAN                    Chg = FALSE;
+      UINT32                     Mv  = 0;
+
+      ZeroMem (&Telem, sizeof (Telem));
+      if (!EFI_ERROR (gBS->LocateProtocol (&gNp05jTouchInfoProtocolGuid, NULL, (VOID **)&TouchInfo)) &&
+          (TouchInfo != NULL))
+      {
+        TouchInfo->GetTelemetry (TouchInfo, &Telem);
+      }
+      ZeroMem (&FbStatus, sizeof (FbStatus));
+      if (Ctx.Fastboot != NULL) {
+        Ctx.Fastboot->GetStatus (Ctx.Fastboot, &FbStatus);
+      }
+      Np05jQueryPowerStatus (&Bat, &Chg, &Mv);
+
       Np05jUiClear (&Ctx, COL_BG);
+      Np05jUiDrawSunBrand (&Ctx, 132, 168U, 17U, "SunUEFI / NP05J");
+
       AsciiSPrint (
-        Sub,
-        sizeof (Sub),
-        "Touch tiles directly or use Vol+/Vol-/Power | %u ESP/FAT volume(s) | Adapted from Project SunUEFI",
+        PillTxt,
+        sizeof (PillTxt),
+        "24GB | %umV%a | TOUCH:%a | FB:%a | %u VOLS",
+        Mv,
+        Chg ? "+" : "",
+        Telem.Initialized ? "ON" : "OFF",
+        FbStatus.Configured ? FastbootSpeedStr (FbStatus.BusSpeed) : "WAIT",
         (UINT32)Np05jCountFileSystems ()
         );
-      Np05jUiDrawHeader (&Ctx, "SUNUEFI TOUCH BOOT MANAGER - NUBIA NP05J", Sub);
-
-      for (UINTN I = 0; I < TILE_COUNT; I++) {
-        BOOLEAN                       Focused = ((INTN)I == Focus);
-        EFI_GRAPHICS_OUTPUT_BLT_PIXEL Acc     = mBootTiles[I].Accent;
-        NP05J_RECT                    R       = TileRect[I];
-
-        Np05jUiDrawCard (&Ctx, R, Focused ? COL_CARD_HI : COL_CARD, Focused ? COL_ACCENT : COL_BORDER, Focused ? 4 : 2);
-        Np05jUiFillRect (&Ctx, (NP05J_RECT){ R.X, R.Y, 14, R.H }, Acc);
-
-        /* Badge */
-        Np05jUiDrawCard (&Ctx, (NP05J_RECT){ R.X + 34, R.Y + 26, 136, 44 }, COL_PANEL, Acc, 2);
-        Np05jUiDrawTextCentered (&Ctx, (NP05J_RECT){ R.X + 34, R.Y + 26, 136, 44 }, 2, Acc, mBootTiles[I].Tag);
-
-        /* Title & Description */
-        Np05jUiDrawText (&Ctx, R.X + 34, R.Y + 96, 3, COL_TEXT, mBootTiles[I].Title);
-        Np05jUiDrawText (&Ctx, R.X + 34, R.Y + 148, 2, COL_SUBTEXT, mBootTiles[I].Subtitle);
+      {
+        INT32 Pw = (INT32)((AsciiStrLen (PillTxt) * 6U - 1U) * 2U) + 32;
+        NP05J_RECT PillR = { (INT32)Ctx.ScreenW - Pw - 42, 28, Pw, 40 };
+        Np05jUiDrawRoundedCard (&Ctx, PillR, 10, COL_SURFACE, COL_BORDER, 2);
+        Np05jUiDrawText5x7Centered (&Ctx, PillR, 2U, COL_SUBTEXT, PillTxt);
       }
 
-      /* Quick action footer pills */
-      {
-        STATIC CONST CHAR8 *mQuick[4] = {
-          "Quick: BIOS Setup (Unlocked)",
-          "Quick: Touch Calibration",
-          "Quick: Built-in UEFI Shell",
-          "Quick: Refresh Drives & Touch"
-        };
-        for (UINTN Q = 0; Q < 4U; Q++) {
-          Np05jUiDrawCard (&Ctx, QuickStrip[Q], COL_PANEL, COL_ACCENT, 2);
-          Np05jUiDrawTextCentered (&Ctx, QuickStrip[Q], 2, COL_ACCENT, mQuick[Q]);
+      Np05jUiDrawText5x7 (&Ctx, ColX, 266, 4U, Np05jRgb (86, 91, 99), "SELECT STARTUP");
+      for (UINTN I = 0; I < STARTUP_COUNT; I++) {
+        BOOLEAN    Focused = ((INTN)I == Focus);
+        NP05J_RECT R       = ItemRect[I];
+
+        Np05jUiDrawRoundedCard (
+          &Ctx,
+          R,
+          12,
+          Focused ? COL_CARD_HI : COL_CARD,
+          Focused ? COL_ACCENT : COL_BORDER,
+          Focused ? 4 : 3
+          );
+        Np05jUiDrawText5x7 (&Ctx, R.X + 44, R.Y + 24, 4U, Focused ? COL_ACCENT_DARK : COL_TEXT, mBootItems[I].Title);
+        Np05jUiDrawText5x7 (&Ctx, R.X + 44, R.Y + 66, 2U, COL_SUBTEXT, mBootItems[I].Subtitle);
+
+        if (Focused) {
+          INT32 SelW = (8 * 6 - 1) * 3;
+          Np05jUiDrawText5x7 (&Ctx, R.X + R.W - 44 - SelW, R.Y + 43, 3U, COL_ACCENT, "SELECTED");
         }
       }
 
-      Np05jUiDrawBannerIfAny (&Ctx);
+      for (UINTN U = 0; U < UTIL_COUNT; U++) {
+        UINTN      Idx     = STARTUP_COUNT + U;
+        BOOLEAN    Focused = ((INTN)Idx == Focus);
+        NP05J_RECT R       = ItemRect[Idx];
+
+        Np05jUiDrawRoundedCard (
+          &Ctx,
+          R,
+          12,
+          Focused ? COL_CARD_HI : COL_SURFACE,
+          Focused ? COL_ACCENT : COL_BORDER,
+          Focused ? 4 : 2
+          );
+        Np05jUiDrawText5x7Centered (
+          &Ctx,
+          R,
+          3U,
+          Focused ? COL_ACCENT_DARK : COL_TEXT,
+          mBootItems[Idx].Title
+          );
+      }
+
+      if (Ctx.StatusValid && (Ctx.StatusBanner[0] != '\0')) {
+        NP05J_RECT BanR = { ColX, 1192, ColW, 54 };
+        Np05jUiDrawRoundedCard (&Ctx, BanR, 12, COL_PANEL, Ctx.StatusColor, 3);
+        Np05jUiDrawText5x7Centered (&Ctx, BanR, 2U, Ctx.StatusColor, Ctx.StatusBanner);
+      }
+
+      Np05jUiDrawText5x7 (
+        &Ctx,
+        144,
+        1344,
+        4U,
+        COL_SUBTEXT,
+        "F12: TIANOCORE SETUP   ESC: BIOS SETUP   TAP ANY OPTION"
+        );
+      Np05jUiDrawText5x7 (
+        &Ctx,
+        144,
+        1404,
+        3U,
+        COL_MUTED,
+        "VOLUME +/-: NAVIGATE   POWER: SELECT / CONFIRM"
+        );
       Np05jUiPresent (&Ctx);
       NeedRedraw = FALSE;
     }
@@ -303,46 +442,49 @@ UefiMain (
       continue;
     }
 
-    if (Ev.Kind == Np05jInputLeft) {
-      Focus      = (Focus > 0) ? (Focus - 1) : ((INTN)TILE_COUNT - 1);
+    if (Ev.Kind == Np05jInputFastbootAction) {
+      HandleFastbootAction (&Ctx, Ev.FbAction);
+      NeedRedraw = TRUE;
+    } else if (Ev.Kind == Np05jInputF12) {
+      Np05jLaunchTianoSetup (&Ctx);
+      NeedRedraw = TRUE;
+    } else if (Ev.Kind == Np05jInputBack) {
+      BOOLEAN RebootReq = FALSE;
+      Np05jRunBiosSetup (&Ctx, &RebootReq);
+      NeedRedraw = TRUE;
+    } else if (Ev.Kind == Np05jInputLeft) {
+      if (Focus > (INTN)STARTUP_COUNT) {
+        Focus--;
+      } else if (Focus == (INTN)STARTUP_COUNT) {
+        Focus = (INTN)ITEM_COUNT - 1;
+      } else {
+        Focus = (INTN)ITEM_COUNT - 1;
+      }
       NeedRedraw = TRUE;
     } else if (Ev.Kind == Np05jInputRight) {
-      Focus      = (Focus + 1) % (INTN)TILE_COUNT;
+      if (Focus >= (INTN)STARTUP_COUNT) {
+        Focus = (INTN)STARTUP_COUNT + (((Focus - (INTN)STARTUP_COUNT) + 1) % (INTN)UTIL_COUNT);
+      } else {
+        Focus = (INTN)STARTUP_COUNT;
+      }
       NeedRedraw = TRUE;
     } else if (Ev.Kind == Np05jInputUp) {
-      Focus      = (Focus >= 3) ? (Focus - 3) : ((Focus + 6) % (INTN)TILE_COUNT);
+      Focus      = (Focus > 0) ? (Focus - 1) : ((INTN)ITEM_COUNT - 1);
       NeedRedraw = TRUE;
     } else if (Ev.Kind == Np05jInputDown) {
-      Focus      = (Focus + 3) % (INTN)TILE_COUNT;
+      Focus      = (Focus + 1) % (INTN)ITEM_COUNT;
       NeedRedraw = TRUE;
     } else if (Ev.Kind == Np05jInputEnter) {
       ActivateTile (&Ctx, (UINTN)Focus);
       NeedRedraw = TRUE;
     } else if (Ev.Kind == Np05jInputTap) {
-      BOOLEAN Hit = FALSE;
-      for (UINTN I = 0; I < TILE_COUNT; I++) {
-        if (Np05jRectContains (TileRect[I], Ev.X, Ev.Y)) {
+      for (UINTN I = 0; I < ITEM_COUNT; I++) {
+        if (Np05jRectContains (ItemRect[I], Ev.X, Ev.Y)) {
           Focus = (INTN)I;
           ActivateTile (&Ctx, I);
-          Hit        = TRUE;
           NeedRedraw = TRUE;
           break;
         }
-      }
-      if (!Hit) {
-        if (Np05jRectContains (QuickStrip[0], Ev.X, Ev.Y)) {
-          ActivateTile (&Ctx, 4);
-        } else if (Np05jRectContains (QuickStrip[1], Ev.X, Ev.Y)) {
-          ActivateTile (&Ctx, 7);
-        } else if (Np05jRectContains (QuickStrip[2], Ev.X, Ev.Y)) {
-          ActivateTile (&Ctx, 6);
-        } else if (Np05jRectContains (QuickStrip[3], Ev.X, Ev.Y)) {
-          EfiBootManagerConnectAll ();
-          Np05jUiRefreshHandles (&Ctx);
-          Np05jUiSetBanner (&Ctx, COL_GREEN, "Refreshed: %u FAT volumes, %u touch handle(s)",
-            (UINT32)Np05jCountFileSystems (), (UINT32)Ctx.AbsCount);
-        }
-        NeedRedraw = TRUE;
       }
     }
   }

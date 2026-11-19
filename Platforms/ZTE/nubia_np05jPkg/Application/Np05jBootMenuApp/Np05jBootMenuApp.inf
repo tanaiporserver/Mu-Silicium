@@ -54,8 +54,10 @@
   gChargerExProtocolGuid
   gEfiAbsolutePointerProtocolGuid
   gEfiGraphicsOutputProtocolGuid
+  gEfiFirmwareVolume2ProtocolGuid
   gEfiLoadedImageProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
   gEfiSimplePointerProtocolGuid
   gNp05jBiosConfigProtocolGuid
+  gNp05jFastbootProtocolGuid
   gNp05jTouchInfoProtocolGuid

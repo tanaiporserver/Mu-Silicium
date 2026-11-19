@@ -72,7 +72,7 @@ Np05jBiosConfigGetDefaults (
 
   /* 4. Display, Console & Touch */
   Config->DisplayRotation      = 0;
-  Config->ConsoleScale         = 2; /* 2400x1504 -> 1200x752 logical */
+  Config->ConsoleScale         = 3; /* 2400x1504 -> 800x501 logical (80x25 UiApp) */
   Config->DisplayDriverMode    = 0; /* SimpleFbDxe */
   Config->TouchEnable          = 1;
   Config->TouchSwapXY          = 1; /* Portrait S3930 -> Landscape 2400x1504 */

@@ -207,3 +207,70 @@ Np05jLaunchEfiShell (
   Np05jUiSetBanner (Ctx, COL_ACCENT, "UEFI Shell exited (%r)", Status);
   return Status;
 }
+
+EFI_STATUS
+Np05jLaunchTianoSetup (
+  IN OUT NP05J_UI_CTX *Ctx
+  )
+{
+  STATIC EFI_GUID                    mUiAppGuid  = NP05J_UIAPP_GUID;
+  EFI_LOADED_IMAGE_PROTOCOL         *LoadedImage = NULL;
+  MEDIA_FW_VOL_FILEPATH_DEVICE_PATH  FileNode;
+  EFI_DEVICE_PATH_PROTOCOL          *DevPath     = NULL;
+  EFI_HANDLE                         UiHandle    = NULL;
+  EFI_STATUS                         Status      = EFI_NOT_FOUND;
+
+  EfiInitializeFwVolDevicepathNode (&FileNode, &mUiAppGuid);
+
+  if (!EFI_ERROR (gBS->HandleProtocol (gImageHandle, &gEfiLoadedImageProtocolGuid, (VOID **)&LoadedImage)) &&
+      (LoadedImage != NULL))
+  {
+    DevPath = AppendDevicePathNode (DevicePathFromHandle (LoadedImage->DeviceHandle), (EFI_DEVICE_PATH_PROTOCOL *)&FileNode);
+    if (DevPath != NULL) {
+      Status = gBS->LoadImage (TRUE, gImageHandle, DevPath, NULL, 0, &UiHandle);
+      FreePool (DevPath);
+    }
+  }
+
+  if (EFI_ERROR (Status)) {
+    EFI_HANDLE *Volumes = NULL;
+    UINTN       Count   = 0;
+
+    if (!EFI_ERROR (gBS->LocateHandleBuffer (ByProtocol, &gEfiFirmwareVolume2ProtocolGuid, NULL, &Count, &Volumes)) &&
+        (Volumes != NULL))
+    {
+      for (UINTN I = 0; I < Count; I++) {
+        DevPath = AppendDevicePathNode (DevicePathFromHandle (Volumes[I]), (EFI_DEVICE_PATH_PROTOCOL *)&FileNode);
+        if (DevPath == NULL) {
+          continue;
+        }
+        Status = gBS->LoadImage (TRUE, gImageHandle, DevPath, NULL, 0, &UiHandle);
+        FreePool (DevPath);
+        if (!EFI_ERROR (Status)) {
+          break;
+        }
+      }
+      FreePool (Volumes);
+    }
+  }
+
+  if (EFI_ERROR (Status) || (UiHandle == NULL)) {
+    Np05jUiSetBanner (Ctx, COL_RED, "TianoCore Setup (UiApp) unavailable (%r)", Status);
+    return Status;
+  }
+
+  if (gST->ConOut != NULL) {
+    gST->ConOut->ClearScreen (gST->ConOut);
+    gST->ConOut->EnableCursor (gST->ConOut, TRUE);
+  }
+
+  Status = gBS->StartImage (UiHandle, NULL, NULL);
+
+  if (gST->ConOut != NULL) {
+    gST->ConOut->EnableCursor (gST->ConOut, FALSE);
+  }
+
+  Np05jUiDrainInput (Ctx);
+  Np05jUiSetBanner (Ctx, COL_ACCENT, "TianoCore Setup exited (%r)", Status);
+  return Status;
+}

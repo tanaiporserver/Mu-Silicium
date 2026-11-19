@@ -70,10 +70,18 @@
   #
   # SunUEFI Boot Menu & Input overrides
   #
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString|L"4.1-SunUEFI-v2"
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString|L"4.1-SunUEFI-v5"
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x03, 0x50, 0xE4, 0xA1, 0x1C, 0x9B, 0x2A, 0x4F, 0x8C, 0x3D, 0x10, 0x05, 0x4E, 0x50, 0x30, 0x35 }
   gEfiMdeModulePkgTokenSpaceGuid.PcdConInConnectOnDemand|FALSE
   gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
+
+[PcdsDynamicDefault]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoHorizontalResolution|2400
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoVerticalResolution|1504
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn|80
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow|25
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutColumn|80
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutRow|25
 
 [LibraryClasses]
   #
@@ -100,6 +108,8 @@
   RealTimeClockLib|nubia_np05jPkg/Library/Np05jRealTimeClockLib/Np05jRealTimeClockLib.inf
   PlatformBootManagerLib|nubia_np05jPkg/Library/Np05jBootManagerLib/Np05jBootManagerLib.inf
   AcpiTableUpdateLib|nubia_np05jPkg/Library/Np05jAcpiUpdateLib/Np05jAcpiUpdateLib.inf
+  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
+  FileExplorerLib|MdeModulePkg/Library/FileExplorerLib/FileExplorerLib.inf
 
   #
   # UEFI Shell Support Libraries
@@ -143,6 +153,13 @@
   # Touch-First UEFI Boot Menu / Unlocked BIOS Setup & Built-in UEFI Shell
   #
   nubia_np05jPkg/Application/Np05jBootMenuApp/Np05jBootMenuApp.inf
+  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+  MdeModulePkg/Application/UiApp/UiApp.inf {
+    <LibraryClasses>
+      NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
+  }
   ShellPkg/Application/Shell/Shell.inf {
     <PcdsFixedAtBuild>
       gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE

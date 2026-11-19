@@ -160,7 +160,7 @@ Np05jGetConfiguredScale (
   IN UINT32 Height
   )
 {
-  UINTN             Scale = 2U;
+  UINTN             Scale = 3U;
   NP05J_BIOS_CONFIG Config;
   UINTN             Size  = sizeof (Config);
 

@@ -399,37 +399,40 @@ DrawTouchPills (
   STATIC CONST struct {
     CONST CHAR8        *Label;
     NP05J_SPLASH_ACTION Action;
-  } Pills[4] = {
-    { "UEFI MENU",     Np05jSplashActionBootMenu },
-    { "BIOS UNLOCKED", Np05jSplashActionBiosSetup },
-    { "WINDOWS ARM",   Np05jSplashActionWindows },
-    { "LINUX",         Np05jSplashActionLinux }
+  } Pills[2] = {
+    { "BOOT MENU",  Np05jSplashActionBootMenu },
+    { "BIOS SETUP", Np05jSplashActionBiosSetup }
   };
 
   UINT32 MarginX   = mScreenW * 6U / 100U;
-  UINT32 Gap       = 28U;
-  UINT32 TotalW    = mScreenW - 2U * MarginX;
-  UINT32 PillW     = (TotalW - 3U * Gap) / 4U;
-  UINT32 PillH     = 96U;
-  UINT32 PillY     = mScreenH * 77U / 100U;
-  UINT32 TextScale = 4U;
+  UINT32 Gap       = 24U;
+  UINT32 PillW     = 310U;
+  UINT32 PillH     = 78U;
+  UINT32 PillY     = mScreenH * 88U / 100U;
+  UINT32 StartX    = (mScreenW > (MarginX + 2U * PillW + Gap)) ? (mScreenW - MarginX - (2U * PillW + Gap)) : MarginX;
+  UINT32 TextScale = 3U;
 
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Border = mDarkTheme ? MakeColor (70, 92, 130) : MakeColor (210, 218, 232);
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Fill   = mDarkTheme ? MakeColor (28, 36, 52) : MakeColor (245, 247, 251);
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Accent = MakeColor (255, 102, 0);
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL TextC  = mDarkTheme ? MakeColor (240, 244, 250) : MakeColor (44, 52, 66);
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Border0 = mDarkTheme ? MakeColor (70, 92, 130) : MakeColor (231, 234, 240);
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Fill0   = mDarkTheme ? MakeColor (28, 36, 52) : MakeColor (248, 249, 251);
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Text0   = mDarkTheme ? MakeColor (240, 244, 250) : MakeColor (56, 61, 70);
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Border1 = MakeColor (66, 115, 226);
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Fill1   = mDarkTheme ? MakeColor (24, 48, 86) : MakeColor (238, 244, 255);
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Text1   = mDarkTheme ? MakeColor (180, 210, 255) : MakeColor (34, 84, 181);
 
   mHitboxCount = 0;
-  for (UINTN I = 0; I < 4; I++) {
-    UINT32 X     = MarginX + (UINT32)I * (PillW + Gap);
-    UINT32 LLen  = (UINT32)AsciiStrLen (Pills[I].Label);
-    UINT32 TextW = (LLen * 6U - 1U) * TextScale;
-    UINT32 TextX = X + (PillW > TextW ? (PillW - TextW) / 2U : 12U);
-    UINT32 TextY = PillY + (PillH - 7U * TextScale) / 2U;
+  for (UINTN I = 0; I < 2; I++) {
+    UINT32                        X      = StartX + (UINT32)I * (PillW + Gap);
+    UINT32                        LLen   = (UINT32)AsciiStrLen (Pills[I].Label);
+    UINT32                        TextW  = (LLen * 6U - 1U) * TextScale;
+    UINT32                        TextX  = X + (PillW > TextW ? (PillW - TextW) / 2U : 12U);
+    UINT32                        TextY  = PillY + (PillH - 7U * TextScale) / 2U;
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Border = (I == 1U) ? Border1 : Border0;
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Fill   = (I == 1U) ? Fill1   : Fill0;
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL TextC  = (I == 1U) ? Text1   : Text0;
 
-    FillRect (Gop, (I == 1) ? Accent : Border, X, PillY, PillW, PillH);
-    FillRect (Gop, Fill, X + 3U, PillY + 3U, PillW - 6U, PillH - 6U);
-    DrawText5x7 (Gop, Pills[I].Label, TextX, TextY, TextScale, (I == 1) ? Accent : TextC);
+    FillRect (Gop, Border, X, PillY, PillW, PillH);
+    FillRect (Gop, Fill, X + 4U, PillY + 4U, PillW - 8U, PillH - 8U);
+    DrawText5x7 (Gop, Pills[I].Label, TextX, TextY, TextScale, TextC);
 
     mHitboxes[mHitboxCount].X      = X;
     mHitboxes[mHitboxCount].Y      = PillY;
@@ -452,6 +455,7 @@ Np05jDrawSplash (
   UINT32 WordmarkScale;
   UINT32 SubScale;
   UINT32 HintScale;
+  UINT32 KeysScale;
   UINT32 TitleHeight;
   UINT32 GroupWidth;
   UINT32 CenterY;
@@ -474,22 +478,24 @@ Np05jDrawSplash (
 
   Short         = (mScreenW < mScreenH) ? mScreenW : mScreenH;
   LogoSize      = Short * 20U / 100U;
-  WordmarkScale = Short / 52U;
-  SubScale      = Short / 340U;
-  HintScale     = Short / 380U;
+  WordmarkScale = Short / 50U;
+  SubScale      = Short / 350U;
+  HintScale     = Short / 400U;
+  KeysScale     = Short / 500U;
   if (WordmarkScale == 0U) { WordmarkScale = 1U; }
   if (SubScale == 0U)      { SubScale = 1U; }
   if (HintScale == 0U)     { HintScale = 1U; }
+  if (KeysScale == 0U)     { KeysScale = 1U; }
 
   TitleHeight = WordmarkScale * 7U;
   GroupWidth  = LogoSize + Short / 20U + BrandWidth (TitleHeight);
-  while ((GroupWidth > mScreenW - 48U) && (WordmarkScale > 1U)) {
+  while ((GroupWidth > mScreenW - 32U) && (WordmarkScale > 1U)) {
     WordmarkScale--;
     TitleHeight = WordmarkScale * 7U;
     GroupWidth  = LogoSize + Short / 20U + BrandWidth (TitleHeight);
   }
 
-  CenterY   = mScreenH * 36U / 100U;
+  CenterY   = mScreenH * 33U / 100U;
   LogoX     = (mScreenW - GroupWidth) / 2U;
   LogoY     = CenterY - LogoSize / 2U;
   WordmarkX = LogoX + LogoSize + Short / 20U;
@@ -503,11 +509,12 @@ Np05jDrawSplash (
   if (mLogoCropY + mLogoCropH > mScreenH) { mLogoCropH = mScreenH - mLogoCropY; }
 
   {
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Bg    = mDarkTheme ? MakeColor (15, 20, 30) : MakeColor (255, 255, 255);
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Gold  = MakeColor (255, 102, 0);
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Shade = MakeColor (214, 82, 0);
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL WordC = mDarkTheme ? MakeColor (235, 240, 248) : MakeColor (54, 60, 68);
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Muted = mDarkTheme ? MakeColor (150, 162, 180) : MakeColor (110, 118, 128);
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Bg     = mDarkTheme ? MakeColor (15, 20, 30) : MakeColor (255, 255, 255);
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Gold   = MakeColor (255, 102, 0);
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Shade  = MakeColor (214, 82, 0);
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL WordC  = mDarkTheme ? MakeColor (235, 240, 248) : MakeColor (64, 68, 74);
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Muted  = mDarkTheme ? MakeColor (150, 162, 180) : MakeColor (112, 116, 122);
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Hint1C = mDarkTheme ? MakeColor (190, 200, 215) : MakeColor (67, 73, 82);
 
     FillRect (Gop, Bg, 0, 0, mScreenW, mScreenH);
 
@@ -535,9 +542,10 @@ Np05jDrawSplash (
     }
 
     DrawBrandWordmark (Gop, WordmarkX, WordmarkY, TitleHeight, WordC);
-    DrawText5x7 (Gop, mSubtitle, WordmarkX, WordmarkY + TitleHeight + Short / 60U, SubScale, Muted);
+    DrawText5x7 (Gop, mSubtitle, WordmarkX, WordmarkY + TitleHeight + Short / 65U, SubScale, Muted);
     DrawTouchPills (Gop);
-    DrawText5x7 (Gop, mSetupHint, mScreenW * 6U / 100U, mScreenH * 90U / 100U, HintScale, Muted);
+    DrawText5x7 (Gop, mSetupHintLine1, mScreenW * 6U / 100U, mScreenH * 89U / 100U, HintScale, Hint1C);
+    DrawText5x7 (Gop, mSetupHintLine2, mScreenW * 6U / 100U, mScreenH * 94U / 100U, KeysScale, Muted);
   }
 
   return EFI_SUCCESS;
@@ -567,17 +575,17 @@ Np05jSplashSetProgress (
     Percent = 100U;
   }
 
-  BarX  = mScreenW * 20U / 100U;
-  BarW  = mScreenW * 60U / 100U;
-  BarY  = mScreenH * 63U / 100U;
-  BarH  = 12U;
+  BarX  = mScreenW * 25U / 100U;
+  BarW  = mScreenW * 50U / 100U;
+  BarY  = mScreenH * 72U / 100U;
+  BarH  = 8U;
   FillW = BarW * Percent / 100U;
 
   {
     EFI_GRAPHICS_OUTPUT_BLT_PIXEL Bg     = mDarkTheme ? MakeColor (15, 20, 30) : MakeColor (255, 255, 255);
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Track  = mDarkTheme ? MakeColor (42, 52, 70) : MakeColor (230, 234, 240);
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Accent = MakeColor (255, 102, 0);
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL TextC  = mDarkTheme ? MakeColor (200, 210, 224) : MakeColor (90, 98, 108);
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Track  = mDarkTheme ? MakeColor (42, 52, 70) : MakeColor (233, 237, 243);
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL Accent = MakeColor (66, 115, 226);
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL TextC  = mDarkTheme ? MakeColor (200, 210, 224) : MakeColor (101, 107, 117);
 
     FillRect (Gop, Track, BarX, BarY, BarW, BarH);
     if (FillW > 0U) {
@@ -585,9 +593,9 @@ Np05jSplashSetProgress (
     }
 
     if (StatusText != NULL) {
-      UINT32 TextY = BarY + 26U;
-      FillRect (Gop, Bg, BarX, TextY, BarW, 42U);
-      DrawText5x7 (Gop, StatusText, BarX, TextY, 4U, TextC);
+      UINT32 TextY = BarY + 18U;
+      FillRect (Gop, Bg, BarX, TextY, BarW, 32U);
+      DrawText5x7 (Gop, StatusText, BarX, TextY, 3U, TextC);
     }
   }
 

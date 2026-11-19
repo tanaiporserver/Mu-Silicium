@@ -191,9 +191,9 @@ SpiByte (
   for (UINTN Bit = 0; Bit < 8; Bit++) {
     DrivePin (PIN_MOSI, (Tx & 0x80U) != 0U);
     Tx = (UINT8)(Tx << 1);
-    NanoSecondDelay (150);
+    NanoSecondDelay (100);
     DrivePin (PIN_CLK, TRUE);
-    NanoSecondDelay (150);
+    NanoSecondDelay (100);
     Rx = (UINT8)((Rx << 1) | (MmioRead32 (PIN_IO (PIN_MISO)) & 1U));
     DrivePin (PIN_CLK, FALSE);
   }
@@ -580,6 +580,12 @@ ProbeAndInitS3930 (
   }
 
   CopyMem (mPartNumber, Buf + 2, 16);
+  for (UINTN I = 0; I < 16; I++) {
+    if ((mPartNumber[I] < 0x20) || (mPartNumber[I] > 0x7E)) {
+      mPartNumber[I] = '\0';
+      break;
+    }
+  }
   mPartNumber[16] = '\0';
   mBuildId        = Tcm2GetLe32 (Buf + 18);
 
@@ -625,6 +631,27 @@ ProbeAndInitS3930 (
   if (!EFI_ERROR (Status) && (Code == TCM2_STATUS_OK) && (Plen > 0U)) {
     mReportCfgLen = (Plen < TCM2_MAX_REPORT_CFG) ? Plen : TCM2_MAX_REPORT_CFG;
     CopyMem (mReportCfg, Buf, mReportCfgLen);
+    DEBUG ((
+      DEBUG_WARN,
+      "NP05J_TOUCH: cfg_len=%u head=%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+      mReportCfgLen,
+      (mReportCfgLen > 0U)  ? mReportCfg[0]  : 0U,
+      (mReportCfgLen > 1U)  ? mReportCfg[1]  : 0U,
+      (mReportCfgLen > 2U)  ? mReportCfg[2]  : 0U,
+      (mReportCfgLen > 3U)  ? mReportCfg[3]  : 0U,
+      (mReportCfgLen > 4U)  ? mReportCfg[4]  : 0U,
+      (mReportCfgLen > 5U)  ? mReportCfg[5]  : 0U,
+      (mReportCfgLen > 6U)  ? mReportCfg[6]  : 0U,
+      (mReportCfgLen > 7U)  ? mReportCfg[7]  : 0U,
+      (mReportCfgLen > 8U)  ? mReportCfg[8]  : 0U,
+      (mReportCfgLen > 9U)  ? mReportCfg[9]  : 0U,
+      (mReportCfgLen > 10U) ? mReportCfg[10] : 0U,
+      (mReportCfgLen > 11U) ? mReportCfg[11] : 0U,
+      (mReportCfgLen > 12U) ? mReportCfg[12] : 0U,
+      (mReportCfgLen > 13U) ? mReportCfg[13] : 0U,
+      (mReportCfgLen > 14U) ? mReportCfg[14] : 0U,
+      (mReportCfgLen > 15U) ? mReportCfg[15] : 0U
+      ));
   } else {
     DEBUG ((DEBUG_WARN, "NP05J_TOUCH: GET_TOUCH_REPORT_CFG failed Status=%r Code=0x%02x\n", Status, Code));
     return EFI_DEVICE_ERROR;
@@ -728,9 +755,12 @@ TouchPollTimer (
   IN VOID     *Context
   )
 {
-  UINT8      Code = 0;
-  UINT16     Plen = 0;
-  EFI_STATUS Status;
+  STATIC BOOLEAN mLoggedFirstTouch   = FALSE;
+  STATIC BOOLEAN mLoggedFirstRelease = FALSE;
+  STATIC BOOLEAN mLoggedFirstErr     = FALSE;
+  UINT8          Code                = 0;
+  UINT16         Plen                = 0;
+  EFI_STATUS     Status;
 
   if (!mRunning || mExited || mBusy || (mReportCfgLen == 0U)) {
     return;
@@ -738,7 +768,7 @@ TouchPollTimer (
 
   mBusy = TRUE;
 
-  for (UINTN Burst = 0; Burst < 2; Burst++) {
+  for (UINTN Burst = 0; Burst < 4; Burst++) {
     /* Active-LOW IRQ check on GPIO 162 */
     if ((MmioRead32 (PIN_IO (PIN_IRQ)) & 1U) != 0U) {
       break;
@@ -758,6 +788,10 @@ TouchPollTimer (
                );
     if (EFI_ERROR (Status)) {
       mErrorCount++;
+      if (!mLoggedFirstErr) {
+        mLoggedFirstErr = TRUE;
+        DEBUG ((DEBUG_WARN, "NP05J_TOUCH: first report err Status=%r Code=0x%02x Plen=%u\n", Status, Code, Plen));
+      }
       break;
     }
 
@@ -776,8 +810,26 @@ TouchPollTimer (
       {
         mFrameCount++;
         EnqueuePointerSample (mTcmState.RawX, mTcmState.RawY, mTcmState.Pressed != 0U);
+        if ((mTcmState.Pressed != 0U) && !mLoggedFirstTouch) {
+          mLoggedFirstTouch = TRUE;
+          DEBUG ((
+            DEBUG_WARN,
+            "NP05J_TOUCH: first touch raw=%u,%u disp=%u,%u\n",
+            mTcmState.RawX,
+            mTcmState.RawY,
+            mLastDispX,
+            mLastDispY
+            ));
+        } else if ((mTcmState.Pressed == 0U) && !mLoggedFirstRelease) {
+          mLoggedFirstRelease = TRUE;
+          DEBUG ((DEBUG_WARN, "NP05J_TOUCH: first release disp=%u,%u\n", mLastDispX, mLastDispY));
+        }
       } else {
         mErrorCount++;
+        if (!mLoggedFirstErr) {
+          mLoggedFirstErr = TRUE;
+          DEBUG ((DEBUG_WARN, "NP05J_TOUCH: first parse err Avail=%u cfg_len=%u\n", Avail, mReportCfgLen));
+        }
       }
     }
   }

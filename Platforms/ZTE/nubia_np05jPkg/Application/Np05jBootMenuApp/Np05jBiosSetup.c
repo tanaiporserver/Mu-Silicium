@@ -26,6 +26,7 @@ typedef enum {
   ActNone = 0,
   ActOpenTouchTest,
   ActOpenFileBrowser,
+  ActOpenTianoSetup,
   ActOpenUefiShell,
   ActReprobeTouch,
   ActRebootNormal,
@@ -66,7 +67,7 @@ STATIC CONST CHAR8 *mCpuPerfNames[]     = { "Max Performance", "Balanced", "Powe
 STATIC CONST CHAR8 *mFanNames[]         = { "Auto Curve", "Silent", "Balanced", "Turbo", "Max 100%" };
 STATIC CONST CHAR8 *mSmmuNames[]        = { "Detach Non-MDP", "Keep All", "Bypass All" };
 STATIC CONST CHAR8 *mDispDrvNames[]     = { "SimpleFB (2400x1504)", "QcomDisplayDxe" };
-STATIC CONST CHAR8 *mUsbModeNames[]     = { "CDC-ACM Serial", "Fastbootd", "Mass Storage", "Host OTG" };
+STATIC CONST CHAR8 *mUsbModeNames[]     = { "Composite (UART+FB)", "SunUEFI Fastboot", "Mass Storage", "Host OTG" };
 STATIC CONST CHAR8 *mUsbRoleNames[]     = { "Auto Dual-Role", "Force Device", "Force Host" };
 STATIC CONST CHAR8 *mUsbSpeedNames[]    = { "SuperSpeed 10G", "HighSpeed 480M" };
 STATIC CONST CHAR8 *mOsCompatNames[]    = { "Auto Detect", "Windows 11 ARM", "Linux DeviceTree", "Linux ACPI" };
@@ -80,11 +81,12 @@ STATIC CONST CHAR8 *mSecBootNames[]     = { "Disabled (Unlocked)", "Enabled (Enf
 STATIC CONST SETUP_ITEM_DESC mItems[] = {
   /* Category 0: System Info (read-only live telemetry + unlocked state) */
   { 0, ItemKindInfo,   "Device & SoC",         "nubia REDMAGIC Astra (NP05JHW1.0) | SM8750P 6+2 Oryon", 0, 0, 0, 0, NULL, ActNone },
-  { 0, ItemKindInfo,   "System Memory",        "24 GiB LPDDR5x | UEFI FD 3.0 MiB | 2400x1504 OLED",     1, 0, 0, 0, NULL, ActNone },
+  { 0, ItemKindInfo,   "System Memory",        "24 GiB LPDDR5x | UEFI FD 2.0 MiB | 2400x1504 OLED",     1, 0, 0, 0, NULL, ActNone },
   { 0, ItemKindInfo,   "RTC & PMIC Status",    "Hardware PMK8550 RTC + ChargerEx Battery Telemetry",    2, 0, 0, 0, NULL, ActNone },
   { 0, ItemKindInfo,   "Touch Controller",     "Synaptics S3930TB0A0 TCMv2 SPI4 (GPIOs 48..51,161,162)", 3, 0, 0, 0, NULL, ActNone },
   { 0, ItemKindInfo,   "Storage & ESP Count",  "UFS 4.0 LU0..5 + FAT/ESP volumes scanned at DXE",       4, 0, 0, 0, NULL, ActNone },
   { 0, ItemKindInfo,   "SunUEFI BIOS Status",  "ALL MENUS UNLOCKED | Dual-Copy CRC32 NVRAM+FAT",       5, 0, 0, 0, NULL, ActNone },
+  { 0, ItemKindInfo,   "UEFI Fastboot",        "Project SunUEFI Fastboot 0.4 background USB service",  7, 0, 0, 0, NULL, ActNone },
 
   /* Category 1: Boot Configuration */
   { 1, ItemKindEnum,   "Default Boot Target",  "Target launched automatically after timeout expires",     OFF (DefaultOs),            0, 5,   1, mDefaultOsNames, ActNone },
@@ -151,6 +153,7 @@ STATIC CONST SETUP_ITEM_DESC mItems[] = {
   { 7, ItemKindToggle, "Dual-Copy Persistence","Save NVRAM variable + FAT bios-a.bin / bios-b.bin",     OFF (NvramPersistence),     0, 1,   1, NULL, ActNone },
 
   /* Category 8: Tools, Diagnostics & Power */
+  { 8, ItemKindAction, "TianoCore Setup (UiApp)", "Launch genuine Project SunUEFI EDK2 SetupBrowser UI", 0, 0, 0, 0, NULL, ActOpenTianoSetup },
   { 8, ItemKindAction, "Touch Test & Calib",   "Live drawing canvas + 4-corner S3930 verification",     0, 0, 0, 0, NULL, ActOpenTouchTest },
   { 8, ItemKindAction, "Boot From File (.EFI)","Browse FAT/ESP partitions and launch any .efi binary",  0, 0, 0, 0, NULL, ActOpenFileBrowser },
   { 8, ItemKindAction, "Launch UEFI Shell",    "Start built-in EDK2 Shell from firmware volume",        0, 0, 0, 0, NULL, ActOpenUefiShell },
@@ -257,6 +260,22 @@ FormatItemValue (
         AsciiSPrint (Out, OutSize, "%u FAT/ESP vol", (UINT32)Np05jCountFileSystems ());
       } else if (Item->Offset == 5U) {
         AsciiSPrint (Out, OutSize, "Seq #%lu CRC OK", Ctx->Config.Sequence);
+      } else if (Item->Offset == 7U) {
+        NP05J_FASTBOOT_STATUS FbSt;
+        if ((Ctx->Fastboot != NULL) && !EFI_ERROR (Ctx->Fastboot->GetStatus (Ctx->Fastboot, &FbSt)) && FbSt.Configured) {
+          CONST CHAR8 *Spd = "USB";
+          switch (FbSt.BusSpeed) {
+            case 1: Spd = "LS"; break;
+            case 2: Spd = "FS"; break;
+            case 3: Spd = "HS"; break;
+            case 4: Spd = "SS"; break;
+            case 5: Spd = "SSP"; break;
+            default: break;
+          }
+          AsciiSPrint (Out, OutSize, "SunUEFI-np05j (%a, %u GPT)", Spd, FbSt.PartitionsFound);
+        } else {
+          AsciiSPrint (Out, OutSize, "SunUEFI-np05j (Waiting USB)");
+        }
       } else {
         AsciiSPrint (Out, OutSize, "UNLOCKED");
       }
@@ -395,6 +414,9 @@ ExecuteSetupAction (
     case ActOpenFileBrowser:
       Np05jRunFileBrowser (Ctx);
       break;
+    case ActOpenTianoSetup:
+      Np05jLaunchTianoSetup (Ctx);
+      break;
     case ActOpenUefiShell:
       Np05jLaunchEfiShell (Ctx);
       break;
@@ -486,7 +508,7 @@ Np05jRunBiosSetup (
     if (NeedRedraw) {
       CHAR8 Sub[96];
 
-      Np05jUiClear (Ctx, COL_BG);
+      Np05jUiClear (Ctx, COL_SURFACE);
       AsciiSPrint (
         Sub,
         sizeof (Sub),
@@ -495,29 +517,30 @@ Np05jRunBiosSetup (
         );
       Np05jUiDrawHeader (Ctx, "SUNUEFI UNLOCKED BIOS SETUP (NP05J)", Sub);
 
-      /* Left sidebar: all 9 unlocked categories */
-      Np05jUiDrawCard (Ctx, (NP05J_RECT){ 28, 134, 384, (INT32)Ctx->ScreenH - 258 }, COL_PANEL, COL_BORDER, 2);
+      /* Left sidebar rail: SunUEFI #EAF0EE surface + #D7EAE3 active pill */
+      Np05jUiDrawRoundedCard (Ctx, (NP05J_RECT){ 28, 134, 384, (INT32)Ctx->ScreenH - 258 }, 16, COL_RAIL, COL_BORDER, 2);
       for (UINTN C = 0; C < SETUP_CAT_COUNT; C++) {
         CatBtns[C] = (NP05J_RECT){ 44, 152 + (INT32)C * 116, 352, 98 };
         {
           BOOLEAN Active = (C == CurCat);
-          Np05jUiDrawCard (
+          Np05jUiDrawRoundedCard (
             Ctx,
             CatBtns[C],
-            Active ? COL_CARD_HI : COL_CARD,
-            Active ? COL_ACCENT : COL_BORDER,
+            14,
+            Active ? COL_RAIL_HI : COL_PANEL,
+            Active ? COL_GREEN : COL_BORDER,
             Active ? 3 : 2
             );
-          Np05jUiDrawTextCentered (Ctx, CatBtns[C], 2, Active ? COL_ACCENT : COL_TEXT, mCatNames[C]);
+          Np05jUiDrawText5x7Centered (Ctx, CatBtns[C], 2U, Active ? COL_GREEN : COL_TEXT, mCatNames[C]);
         }
       }
 
       /* Right category header + page controls */
-      Np05jUiDrawCard (Ctx, (NP05J_RECT){ 432, 134, (INT32)Ctx->ScreenW - 460, 64 }, COL_PANEL, COL_BORDER, 2);
-      Np05jUiDrawCard (Ctx, BtnPgUp, COL_CARD, COL_BORDER, 2);
-      Np05jUiDrawTextCentered (Ctx, BtnPgUp, 2, COL_TEXT, "< Prev");
-      Np05jUiDrawCard (Ctx, BtnPgDn, COL_CARD, COL_BORDER, 2);
-      Np05jUiDrawTextCentered (Ctx, BtnPgDn, 2, COL_TEXT, "Next >");
+      Np05jUiDrawRoundedCard (Ctx, (NP05J_RECT){ 432, 134, (INT32)Ctx->ScreenW - 460, 64 }, 14, COL_PANEL, COL_BORDER, 2);
+      Np05jUiDrawRoundedCard (Ctx, BtnPgUp, 12, COL_SURFACE, COL_BORDER, 2);
+      Np05jUiDrawText5x7Centered (Ctx, BtnPgUp, 2U, COL_TEXT, "< Prev");
+      Np05jUiDrawRoundedCard (Ctx, BtnPgDn, 12, COL_SURFACE, COL_BORDER, 2);
+      Np05jUiDrawText5x7Centered (Ctx, BtnPgDn, 2U, COL_TEXT, "Next >");
 
       {
         CHAR8 PgStr[64];
@@ -526,7 +549,7 @@ Np05jRunBiosSetup (
           (UINT32)(CatScroll + 1U),
           (UINT32)(((CatScroll + ITEMS_PER_PAGE) < CatCount) ? (CatScroll + ITEMS_PER_PAGE) : CatCount),
           (UINT32)CatCount);
-        Np05jUiDrawText (Ctx, 920, 158, 2, COL_GOLD, PgStr);
+        Np05jUiDrawText5x7 (Ctx, 920, 158, 2U, COL_GOLD_SHADE, PgStr);
       }
 
       /* Right option cards */
@@ -545,52 +568,57 @@ Np05jRunBiosSetup (
           BOOLEAN                IsSel = ((INTN)Idx == Selected);
           CHAR8                  ValStr[64];
 
-          Np05jUiDrawCard (
+          Np05jUiDrawRoundedCard (
             Ctx,
             RowRect[R],
-            IsSel ? COL_CARD_HI : COL_CARD,
+            14,
+            IsSel ? COL_CARD_HI : COL_PANEL,
             IsSel ? COL_ACCENT : COL_BORDER,
             IsSel ? 3 : 2
             );
-          Np05jUiDrawText (Ctx, RowRect[R].X + 24, RowRect[R].Y + 24, 3, COL_TEXT, It->Label);
-          Np05jUiDrawText (Ctx, RowRect[R].X + 24, RowRect[R].Y + 72, 2, COL_SUBTEXT, It->Help);
+          Np05jUiDrawText5x7 (Ctx, RowRect[R].X + 24, RowRect[R].Y + 28, 3U, IsSel ? COL_ACCENT_DARK : COL_TEXT, It->Label);
+          Np05jUiDrawText5x7 (Ctx, RowRect[R].X + 24, RowRect[R].Y + 76, 2U, COL_SUBTEXT, It->Help);
 
           FormatItemValue (Ctx, It, ValStr, sizeof (ValStr));
 
           if ((It->Kind == ItemKindInfo) || (It->Kind == ItemKindAction) || (It->Kind == ItemKindToggle)) {
             NP05J_RECT WideBtn = { RowRect[R].X + RowRect[R].W - 480, RowRect[R].Y + 26, 456, 76 };
+            EFI_GRAPHICS_OUTPUT_BLT_PIXEL BFill  = COL_SURFACE;
             EFI_GRAPHICS_OUTPUT_BLT_PIXEL BColor = COL_BORDER;
             EFI_GRAPHICS_OUTPUT_BLT_PIXEL TColor = COL_TEXT;
 
             if (It->Kind == ItemKindToggle) {
               BOOLEAN On = (*FieldPtrU8 (&Ctx->Config, It->Offset) != 0U);
+              BFill  = On ? COL_GREEN_BG : COL_RED_BG;
               BColor = On ? COL_GREEN : COL_RED;
               TColor = On ? COL_GREEN : COL_RED;
             } else if (It->Kind == ItemKindAction) {
-              BColor = COL_GOLD;
-              TColor = COL_GOLD;
-            } else {
+              BFill  = COL_CARD_HI;
               BColor = COL_ACCENT;
-              TColor = COL_ACCENT;
+              TColor = COL_ACCENT_DARK;
+            } else {
+              BFill  = COL_SURFACE;
+              BColor = COL_BORDER;
+              TColor = COL_ACCENT_DARK;
             }
 
             ValRect[R]   = WideBtn;
             MinusRect[R] = (NP05J_RECT){ -10, -10, 0, 0 };
             PlusRect[R]  = (NP05J_RECT){ -10, -10, 0, 0 };
-            Np05jUiDrawCard (Ctx, WideBtn, COL_PANEL, BColor, 2);
-            Np05jUiDrawTextCentered (Ctx, WideBtn, 2, TColor, ValStr);
+            Np05jUiDrawRoundedCard (Ctx, WideBtn, 12, BFill, BColor, 2);
+            Np05jUiDrawText5x7Centered (Ctx, WideBtn, 2U, TColor, ValStr);
           } else {
-            Np05jUiDrawCard (Ctx, MinusRect[R], COL_PANEL, COL_ACCENT, 2);
-            Np05jUiDrawTextCentered (Ctx, MinusRect[R], 3, COL_ACCENT, "-");
-            Np05jUiDrawCard (Ctx, ValRect[R], COL_PANEL, COL_BORDER, 2);
-            Np05jUiDrawTextCentered (Ctx, ValRect[R], 2, COL_GOLD, ValStr);
-            Np05jUiDrawCard (Ctx, PlusRect[R], COL_PANEL, COL_ACCENT, 2);
-            Np05jUiDrawTextCentered (Ctx, PlusRect[R], 3, COL_ACCENT, "+");
+            Np05jUiDrawRoundedCard (Ctx, MinusRect[R], 12, COL_SURFACE, COL_ACCENT, 2);
+            Np05jUiDrawText5x7Centered (Ctx, MinusRect[R], 3U, COL_ACCENT, "-");
+            Np05jUiDrawRoundedCard (Ctx, ValRect[R], 12, COL_SURFACE, COL_BORDER, 2);
+            Np05jUiDrawText5x7Centered (Ctx, ValRect[R], 2U, COL_GOLD_SHADE, ValStr);
+            Np05jUiDrawRoundedCard (Ctx, PlusRect[R], 12, COL_SURFACE, COL_ACCENT, 2);
+            Np05jUiDrawText5x7Centered (Ctx, PlusRect[R], 3U, COL_ACCENT, "+");
           }
         }
       }
 
-      /* Bottom actions */
+      /* Bottom actions with SunUEFI emerald-teal primary CTAs */
       {
         STATIC CONST CHAR8 *BtnLbl[6] = {
           "Preset: Win11 ARM",
@@ -600,19 +628,25 @@ Np05jRunBiosSetup (
           "Save & Reboot",
           "< Back to Menu"
         };
+        EFI_GRAPHICS_OUTPUT_BLT_PIXEL BtnFill[6] = {
+          COL_PANEL, COL_PANEL, COL_PANEL, COL_GREEN, COL_GREEN, COL_RED_BG
+        };
         EFI_GRAPHICS_OUTPUT_BLT_PIXEL BtnBdr[6] = {
-          COL_ACCENT, COL_PURPLE, COL_GOLD, COL_GREEN, COL_ACCENT, COL_RED
+          COL_ACCENT, COL_PURPLE, COL_GOLD_SHADE, COL_GREEN, COL_GREEN, COL_RED
+        };
+        EFI_GRAPHICS_OUTPUT_BLT_PIXEL BtnInk[6] = {
+          COL_ACCENT_DARK, COL_PURPLE, COL_GOLD_SHADE, COL_WHITE, COL_WHITE, COL_RED
         };
         for (UINTN B = 0; B < 6U; B++) {
-          Np05jUiDrawCard (Ctx, BottomBtns[B], COL_PANEL, BtnBdr[B], 2);
-          Np05jUiDrawTextCentered (Ctx, BottomBtns[B], 2, BtnBdr[B], BtnLbl[B]);
+          Np05jUiDrawRoundedCard (Ctx, BottomBtns[B], 14, BtnFill[B], BtnBdr[B], 2);
+          Np05jUiDrawText5x7Centered (Ctx, BottomBtns[B], 2U, BtnInk[B], BtnLbl[B]);
         }
       }
 
       if (Ctx->StatusValid) {
         /* Compact status bar above bottom row when active */
-        Np05jUiDrawCard (Ctx, (NP05J_RECT){ 432, (INT32)Ctx->ScreenH - 166, (INT32)Ctx->ScreenW - 460, 54 }, COL_PANEL, Ctx->StatusColor, 2);
-        Np05jUiDrawTextCentered (Ctx, (NP05J_RECT){ 432, (INT32)Ctx->ScreenH - 166, (INT32)Ctx->ScreenW - 460, 54 }, 2, Ctx->StatusColor, Ctx->StatusBanner);
+        Np05jUiDrawRoundedCard (Ctx, (NP05J_RECT){ 432, (INT32)Ctx->ScreenH - 166, (INT32)Ctx->ScreenW - 460, 54 }, 12, COL_PANEL, Ctx->StatusColor, 2);
+        Np05jUiDrawText5x7Centered (Ctx, (NP05J_RECT){ 432, (INT32)Ctx->ScreenH - 166, (INT32)Ctx->ScreenW - 460, 54 }, 2U, Ctx->StatusColor, Ctx->StatusBanner);
       }
 
       Np05jUiPresent (Ctx);
@@ -620,6 +654,33 @@ Np05jRunBiosSetup (
     }
 
     if (EFI_ERROR (Np05jUiPollInput (Ctx, 100, &Ev))) {
+      continue;
+    }
+
+    if (Ev.Kind == Np05jInputFastbootAction) {
+      if (Ev.FbAction == Np05jFbActionOpenBootMenu) {
+        return;
+      }
+      if (Ev.FbAction == Np05jFbActionOpenShell) {
+        Np05jLaunchEfiShell (Ctx);
+        NeedRedraw = TRUE;
+        continue;
+      }
+      if ((Ev.FbAction == Np05jFbActionReboot) || (Ev.FbAction == Np05jFbActionContinue)) {
+        if (Ctx->ConfigModified) {
+          ApplyLiveTouchAndSave (Ctx);
+        }
+        Np05jExecuteReset (Np05jResetNormal);
+        return;
+      }
+      if (Ev.FbAction == Np05jFbActionBootStable) {
+        if (EFI_ERROR (Np05jLaunchLinux (Ctx, FALSE))) {
+          Np05jLaunchWindowsArm (Ctx);
+        }
+        NeedRedraw = TRUE;
+        continue;
+      }
+      NeedRedraw = TRUE;
       continue;
     }
 

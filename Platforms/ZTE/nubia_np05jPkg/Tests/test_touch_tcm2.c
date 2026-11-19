@@ -24,6 +24,7 @@ static void TestCrcAndPacket(void) {
   uint8_t Payload[3] = { 0x11U, 0x22U, 0x33U };
 
   /* Header-only packet */
+  assert(TCM2_CMD_GET_TOUCH_REPORT_CFG == 0x25U);
   uint32_t Total = Tcm2BuildPacket(Buf, sizeof(Buf), TCM2_CMD_IDENTIFY, 0U, NULL, 0U);
   assert(Total == TCM2_HDR_SIZE);
   assert(Buf[0] == TCM2_CMD_IDENTIFY);

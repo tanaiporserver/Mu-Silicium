@@ -108,6 +108,71 @@ STATIC CONST UINT8 mFont8x8[95][8] = {
 STATIC INT32 mPrevCursorX = -1;
 STATIC INT32 mPrevCursorY = -1;
 
+typedef struct {
+  INT32 X;
+  INT32 Y;
+} NP05J_UI_POINT;
+
+/* Project SunUEFI (ProductSplashAssets.h) 6-spoke starburst, 32-pt circle & 5x7 glyphs */
+STATIC CONST NP05J_UI_POINT mSunSpokes[6] = {
+  { 0, -1000 }, { 866, -500 }, { 866, 500 },
+  { 0,  1000 }, { -866, 500 }, { -866, -500 }
+};
+
+STATIC CONST NP05J_UI_POINT mSunCircle[32] = {
+  { 1000, 0 }, { 981, 195 }, { 924, 383 }, { 831, 556 },
+  { 707, 707 }, { 556, 831 }, { 383, 924 }, { 195, 981 },
+  { 0, 1000 }, { -195, 981 }, { -383, 924 }, { -556, 831 },
+  { -707, 707 }, { -831, 556 }, { -924, 383 }, { -981, 195 },
+  { -1000, 0 }, { -981, -195 }, { -924, -383 }, { -831, -556 },
+  { -707, -707 }, { -556, -831 }, { -383, -924 }, { -195, -981 },
+  { 0, -1000 }, { 195, -981 }, { 383, -924 }, { 556, -831 },
+  { 707, -707 }, { 831, -556 }, { 924, -383 }, { 981, -195 }
+};
+
+STATIC CONST UINT8 mSunLetters[26][5] = {
+  { 0x7e, 0x11, 0x11, 0x11, 0x7e }, { 0x7f, 0x49, 0x49, 0x49, 0x36 }, { 0x3e, 0x41, 0x41, 0x41, 0x22 },
+  { 0x7f, 0x41, 0x41, 0x22, 0x1c }, { 0x7f, 0x49, 0x49, 0x49, 0x41 }, { 0x7f, 0x09, 0x09, 0x09, 0x01 },
+  { 0x3e, 0x41, 0x49, 0x49, 0x7a }, { 0x7f, 0x08, 0x08, 0x08, 0x7f }, { 0x00, 0x41, 0x7f, 0x41, 0x00 },
+  { 0x20, 0x40, 0x41, 0x3f, 0x01 }, { 0x7f, 0x08, 0x14, 0x22, 0x41 }, { 0x7f, 0x40, 0x40, 0x40, 0x40 },
+  { 0x7f, 0x02, 0x0c, 0x02, 0x7f }, { 0x7f, 0x04, 0x08, 0x10, 0x7f }, { 0x3e, 0x41, 0x41, 0x41, 0x3e },
+  { 0x7f, 0x09, 0x09, 0x09, 0x06 }, { 0x3e, 0x41, 0x51, 0x21, 0x5e }, { 0x7f, 0x09, 0x19, 0x29, 0x46 },
+  { 0x46, 0x49, 0x49, 0x49, 0x31 }, { 0x01, 0x01, 0x7f, 0x01, 0x01 }, { 0x3f, 0x40, 0x40, 0x40, 0x3f },
+  { 0x1f, 0x20, 0x40, 0x20, 0x1f }, { 0x3f, 0x40, 0x38, 0x40, 0x3f }, { 0x63, 0x14, 0x08, 0x14, 0x63 },
+  { 0x07, 0x08, 0x70, 0x08, 0x07 }, { 0x61, 0x51, 0x49, 0x45, 0x43 }
+};
+
+STATIC CONST UINT8 mSunDigits[10][5] = {
+  { 0x3e, 0x51, 0x49, 0x45, 0x3e }, { 0x00, 0x42, 0x7f, 0x40, 0x00 }, { 0x42, 0x61, 0x51, 0x49, 0x46 },
+  { 0x21, 0x41, 0x45, 0x4b, 0x31 }, { 0x18, 0x14, 0x12, 0x7f, 0x10 }, { 0x27, 0x45, 0x45, 0x45, 0x39 },
+  { 0x3c, 0x4a, 0x49, 0x49, 0x30 }, { 0x01, 0x71, 0x09, 0x05, 0x03 }, { 0x36, 0x49, 0x49, 0x49, 0x36 },
+  { 0x06, 0x49, 0x49, 0x29, 0x1e }
+};
+
+STATIC
+UINT32
+CanvasSqrt (
+  IN UINT32 N
+  )
+{
+  UINT32 Root = 0;
+  UINT32 Bit  = 1U << 30;
+
+  while (Bit > N) {
+    Bit >>= 2;
+  }
+  while (Bit != 0U) {
+    if (N >= Root + Bit) {
+      N    -= Root + Bit;
+      Root  = (Root >> 1) + Bit;
+    } else {
+      Root >>= 1;
+    }
+    Bit >>= 2;
+  }
+  return Root;
+}
+
 BOOLEAN
 Np05jRectContains (
   IN NP05J_RECT R,
@@ -202,6 +267,82 @@ Np05jUiDrawCard (
 {
   Np05jUiFillRect (Ctx, Rect, Fill);
   Np05jUiDrawBorder (Ctx, Rect, BorderThickness, Border);
+}
+
+STATIC
+VOID
+FillRoundedRect (
+  IN OUT NP05J_UI_CTX                  *Ctx,
+  IN     NP05J_RECT                     Rect,
+  IN     INT32                          Radius,
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color
+  )
+{
+  INT32 R = Radius;
+
+  if ((Rect.W <= 0) || (Rect.H <= 0)) {
+    return;
+  }
+  if (R <= 0) {
+    Np05jUiFillRect (Ctx, Rect, Color);
+    return;
+  }
+  if ((R * 2) > Rect.W) {
+    R = Rect.W / 2;
+  }
+  if ((R * 2) > Rect.H) {
+    R = Rect.H / 2;
+  }
+
+  for (INT32 Y = 0; Y < Rect.H; Y++) {
+    INT32 Inset = 0;
+    if (Y < R) {
+      INT32  Dy = R - 1 - Y;
+      UINT32 Dx = CanvasSqrt ((UINT32)(R * R - Dy * Dy));
+      Inset = R - (INT32)Dx;
+    } else if (Y >= (Rect.H - R)) {
+      INT32  Dy = Y - (Rect.H - R);
+      UINT32 Dx = CanvasSqrt ((UINT32)(R * R - Dy * Dy));
+      Inset = R - (INT32)Dx;
+    }
+    if ((Rect.W - 2 * Inset) > 0) {
+      Np05jUiFillRect (
+        Ctx,
+        (NP05J_RECT){ Rect.X + Inset, Rect.Y + Y, Rect.W - 2 * Inset, 1 },
+        Color
+        );
+    }
+  }
+}
+
+VOID
+Np05jUiDrawRoundedCard (
+  IN OUT NP05J_UI_CTX                  *Ctx,
+  IN     NP05J_RECT                     Rect,
+  IN     INT32                          Radius,
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Fill,
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Border,
+  IN     INT32                          BorderThickness
+  )
+{
+  if ((Rect.W <= 0) || (Rect.H <= 0)) {
+    return;
+  }
+  if (BorderThickness <= 0) {
+    FillRoundedRect (Ctx, Rect, Radius, Fill);
+    return;
+  }
+  FillRoundedRect (Ctx, Rect, Radius, Border);
+  {
+    NP05J_RECT Inner = {
+      Rect.X + BorderThickness,
+      Rect.Y + BorderThickness,
+      Rect.W - 2 * BorderThickness,
+      Rect.H - 2 * BorderThickness
+    };
+    INT32 InnerR = (Radius > BorderThickness) ? (Radius - BorderThickness) : 0;
+    FillRoundedRect (Ctx, Inner, InnerR, Fill);
+  }
 }
 
 VOID
@@ -359,6 +500,399 @@ Np05jUiDrawTextCentered (
     );
 }
 
+STATIC
+CONST UINT8 *
+LookupSunGlyph5x7 (
+  IN CHAR8 Ch
+  )
+{
+  STATIC CONST UINT8 Space[5]  = { 0x00, 0x00, 0x00, 0x00, 0x00 };
+  STATIC CONST UINT8 Plus[5]   = { 0x08, 0x08, 0x3e, 0x08, 0x08 };
+  STATIC CONST UINT8 Minus[5]  = { 0x08, 0x08, 0x08, 0x08, 0x08 };
+  STATIC CONST UINT8 Slash[5]  = { 0x20, 0x10, 0x08, 0x04, 0x02 };
+  STATIC CONST UINT8 Colon[5]  = { 0x00, 0x36, 0x36, 0x00, 0x00 };
+  STATIC CONST UINT8 Dot[5]    = { 0x00, 0x60, 0x60, 0x00, 0x00 };
+  STATIC CONST UINT8 Comma[5]  = { 0x00, 0x50, 0x30, 0x00, 0x00 };
+  STATIC CONST UINT8 LParen[5] = { 0x00, 0x1c, 0x22, 0x41, 0x00 };
+  STATIC CONST UINT8 RParen[5] = { 0x00, 0x41, 0x22, 0x1c, 0x00 };
+  STATIC CONST UINT8 Pipe[5]   = { 0x00, 0x00, 0x7f, 0x00, 0x00 };
+  STATIC CONST UINT8 Star[5]   = { 0x14, 0x08, 0x3e, 0x08, 0x14 };
+  STATIC CONST UINT8 Eq[5]     = { 0x14, 0x14, 0x14, 0x14, 0x14 };
+  STATIC CONST UINT8 Under[5]  = { 0x40, 0x40, 0x40, 0x40, 0x40 };
+  STATIC CONST UINT8 Bang[5]   = { 0x00, 0x00, 0x5f, 0x00, 0x00 };
+
+  if ((Ch >= 'a') && (Ch <= 'z')) {
+    Ch = (CHAR8)(Ch - 'a' + 'A');
+  }
+  if ((Ch >= 'A') && (Ch <= 'Z')) {
+    return mSunLetters[Ch - 'A'];
+  }
+  if ((Ch >= '0') && (Ch <= '9')) {
+    return mSunDigits[Ch - '0'];
+  }
+  switch (Ch) {
+    case '+': return Plus;
+    case '-': return Minus;
+    case '/': return Slash;
+    case ':': return Colon;
+    case '.': return Dot;
+    case ',': return Comma;
+    case '(': return LParen;
+    case ')': return RParen;
+    case '|': return Pipe;
+    case '*': return Star;
+    case '=': return Eq;
+    case '_': return Under;
+    case '!': return Bang;
+    default:  return Space;
+  }
+}
+
+VOID
+Np05jUiDrawText5x7 (
+  IN OUT NP05J_UI_CTX                  *Ctx,
+  IN     INT32                          X,
+  IN     INT32                          Y,
+  IN     UINT32                         Scale,
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color,
+  IN     CONST CHAR8                   *Text
+  )
+{
+  UINTN Len;
+
+  if ((Text == NULL) || (Scale == 0U)) {
+    return;
+  }
+
+  Len = AsciiStrLen (Text);
+  for (UINTN I = 0; I < Len; I++) {
+    CONST UINT8 *G = LookupSunGlyph5x7 (Text[I]);
+    for (UINT32 Col = 0; Col < 5U; Col++) {
+      UINT32 Row = 0;
+      while (Row < 7U) {
+        UINT32 First;
+        if ((G[Col] & (1U << Row)) == 0U) {
+          Row++;
+          continue;
+        }
+        First = Row;
+        while ((Row < 7U) && ((G[Col] & (1U << Row)) != 0U)) {
+          Row++;
+        }
+        Np05jUiFillRect (
+          Ctx,
+          (NP05J_RECT){
+            X + (INT32)((I * 6U + Col) * Scale),
+            Y + (INT32)(First * Scale),
+            (INT32)Scale,
+            (INT32)((Row - First) * Scale)
+          },
+          Color
+          );
+      }
+    }
+  }
+}
+
+VOID
+Np05jUiDrawText5x7Centered (
+  IN OUT NP05J_UI_CTX                  *Ctx,
+  IN     NP05J_RECT                     Rect,
+  IN     UINT32                         Scale,
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color,
+  IN     CONST CHAR8                   *Text
+  )
+{
+  UINTN Len;
+  INT32 TextW;
+  INT32 TextH;
+
+  if ((Text == NULL) || (Scale == 0U)) {
+    return;
+  }
+
+  Len   = AsciiStrLen (Text);
+  TextW = (Len > 0U) ? (INT32)((Len * 6U - 1U) * Scale) : 0;
+  TextH = (INT32)(7U * Scale);
+
+  Np05jUiDrawText5x7 (
+    Ctx,
+    Rect.X + (Rect.W - TextW) / 2,
+    Rect.Y + (Rect.H - TextH) / 2,
+    Scale,
+    Color,
+    Text
+    );
+}
+
+STATIC
+VOID
+FillPolygon4 (
+  IN OUT NP05J_UI_CTX                  *Ctx,
+  IN     CONST NP05J_UI_POINT           V[4],
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color
+  )
+{
+  INT32 Top    = V[0].Y;
+  INT32 Bottom = Top;
+
+  for (UINTN I = 1; I < 4U; I++) {
+    if (V[I].Y < Top) {
+      Top = V[I].Y;
+    }
+    if (V[I].Y > Bottom) {
+      Bottom = V[I].Y;
+    }
+  }
+
+  for (INT32 Y = Top; Y < Bottom; Y++) {
+    INT32 Left  = MAX_INT32;
+    INT32 Right = MIN_INT32;
+
+    for (UINTN I = 0; I < 4U; I++) {
+      NP05J_UI_POINT A = V[I];
+      NP05J_UI_POINT B = V[(I + 1U) & 3U];
+      INT32          X;
+
+      if (A.Y > B.Y) {
+        NP05J_UI_POINT T = A;
+        A = B;
+        B = T;
+      }
+      if ((A.Y == B.Y) || (Y < A.Y) || (Y >= B.Y)) {
+        continue;
+      }
+      X = A.X + (INT32)(((INT64)(B.X - A.X) * (Y - A.Y)) / (B.Y - A.Y));
+      if (X < Left) {
+        Left = X;
+      }
+      if (X > Right) {
+        Right = X;
+      }
+    }
+
+    if (Left <= Right) {
+      Np05jUiFillRect (Ctx, (NP05J_RECT){ Left, Y, Right - Left + 1, 1 }, Color);
+    }
+  }
+}
+
+STATIC
+VOID
+DrawVectorStroke (
+  IN OUT NP05J_UI_CTX                  *Ctx,
+  IN     NP05J_UI_POINT                 A,
+  IN     NP05J_UI_POINT                 B,
+  IN     UINT32                         Radius,
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color
+  )
+{
+  INT32  Dx = B.X - A.X;
+  INT32  Dy = B.Y - A.Y;
+  UINT32 L  = CanvasSqrt ((UINT32)(Dx * Dx + Dy * Dy));
+
+  if (L == 0U) {
+    Np05jUiDrawCircle (Ctx, A.X, A.Y, (INT32)Radius, Color);
+    return;
+  }
+
+  {
+    INT32          Nx   = (INT32)(((INT64)Dy * Radius) / L);
+    INT32          Ny   = (INT32)(-((INT64)Dx * Radius) / L);
+    NP05J_UI_POINT V[4] = {
+      { A.X + Nx, A.Y + Ny },
+      { B.X + Nx, B.Y + Ny },
+      { B.X - Nx, B.Y - Ny },
+      { A.X - Nx, A.Y - Ny }
+    };
+    FillPolygon4 (Ctx, V, Color);
+    Np05jUiDrawCircle (Ctx, A.X, A.Y, (INT32)Radius, Color);
+    Np05jUiDrawCircle (Ctx, B.X, B.Y, (INT32)Radius, Color);
+  }
+}
+
+STATIC
+UINT32
+SunBrandWidth (
+  IN UINT32 Height
+  )
+{
+  STATIC CONST CHAR8 mBrand[9] = "tianocore";
+  UINT32             Width     = Height * 2U / 3U;
+  UINT32             Total     = (Height / 25U) * 8U;
+
+  for (UINTN I = 0; I < 9U; I++) {
+    UINT32 Factor = (mBrand[I] == 'i') ? 38U :
+                    ((mBrand[I] == 't') ? 76U :
+                    ((mBrand[I] == 'r') ? 82U : 100U));
+    Total += Width * Factor / 100U;
+  }
+  return Total;
+}
+
+STATIC
+VOID
+DrawSunWordmark (
+  IN OUT NP05J_UI_CTX                  *Ctx,
+  IN     INT32                          X,
+  IN     INT32                          Y,
+  IN     UINT32                         Height,
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color
+  )
+{
+  STATIC CONST CHAR8 mBrand[9] = "tianocore";
+  UINT32             BaseWidth = Height * 2U / 3U;
+  UINT32             Gap       = Height / 25U;
+  UINT32             Radius    = Height / 32U;
+
+  if (Radius < 1U) {
+    Radius = 1U;
+  }
+
+  for (UINTN I = 0; I < 9U; I++) {
+    NP05J_UI_POINT Path[40];
+    UINT32         Count  = 0;
+    CHAR8          Ch     = mBrand[I];
+    UINT32         Factor = (Ch == 'i') ? 38U : ((Ch == 't') ? 76U : ((Ch == 'r') ? 82U : 100U));
+    UINT32         Width  = BaseWidth * Factor / 100U;
+
+    if ((Ch == 'o') || (Ch == 'a') || (Ch == 'c') || (Ch == 'e')) {
+      UINT32 First = (Ch == 'c') ? 4U : ((Ch == 'e') ? 2U : 0U);
+      UINT32 Last  = (Ch == 'c') ? 28U : ((Ch == 'e') ? 30U : 32U);
+      for (UINT32 J = First; J <= Last; J++) {
+        Path[Count++] = (NP05J_UI_POINT){
+          500 + mSunCircle[J % 32U].X * 390 / 1000,
+          750 + mSunCircle[J % 32U].Y * 450 / 1000
+        };
+      }
+    } else if (Ch == 'n') {
+      Path[Count++] = (NP05J_UI_POINT){ 110, 1200 };
+      Path[Count++] = (NP05J_UI_POINT){ 110, 300 };
+      Path[Count++] = (NP05J_UI_POINT){ 110, 700 };
+      for (UINT32 J = 16; J <= 32; J++) {
+        Path[Count++] = (NP05J_UI_POINT){
+          500 + mSunCircle[J % 32U].X * 390 / 1000,
+          700 + mSunCircle[J % 32U].Y * 400 / 1000
+        };
+      }
+      Path[Count++] = (NP05J_UI_POINT){ 890, 1200 };
+    } else if (Ch == 't') {
+      Path[Count++] = (NP05J_UI_POINT){ 430, 0 };
+      Path[Count++] = (NP05J_UI_POINT){ 430, 1050 };
+      Path[Count++] = (NP05J_UI_POINT){ 500, 1150 };
+      Path[Count++] = (NP05J_UI_POINT){ 640, 1200 };
+      Path[Count++] = (NP05J_UI_POINT){ 840, 1200 };
+    } else if (Ch == 'i') {
+      Path[Count++] = (NP05J_UI_POINT){ 500, 350 };
+      Path[Count++] = (NP05J_UI_POINT){ 500, 1200 };
+    } else if (Ch == 'r') {
+      Path[Count++] = (NP05J_UI_POINT){ 110, 1200 };
+      Path[Count++] = (NP05J_UI_POINT){ 110, 300 };
+      Path[Count++] = (NP05J_UI_POINT){ 110, 700 };
+      Path[Count++] = (NP05J_UI_POINT){ 270, 430 };
+      Path[Count++] = (NP05J_UI_POINT){ 520, 300 };
+      Path[Count++] = (NP05J_UI_POINT){ 760, 320 };
+    }
+
+    for (UINTN J = 1; J < Count; J++) {
+      NP05J_UI_POINT A = Path[J - 1];
+      NP05J_UI_POINT B = Path[J];
+      A.X = X + A.X * (INT32)Width / 1000;
+      B.X = X + B.X * (INT32)Width / 1000;
+      A.Y = Y + A.Y * (INT32)Height / 1200;
+      B.Y = Y + B.Y * (INT32)Height / 1200;
+      DrawVectorStroke (Ctx, A, B, Radius, Color);
+    }
+
+    if ((Ch == 't') || (Ch == 'a') || (Ch == 'e')) {
+      NP05J_UI_POINT A = (Ch == 't') ? (NP05J_UI_POINT){ 100, 350 } :
+                         (Ch == 'a') ? (NP05J_UI_POINT){ 890, 300 } :
+                                       (NP05J_UI_POINT){ 200, 1050 };
+      NP05J_UI_POINT B = (Ch == 't') ? (NP05J_UI_POINT){ 850, 350 } :
+                         (Ch == 'a') ? (NP05J_UI_POINT){ 890, 1200 } :
+                                       (NP05J_UI_POINT){ 855, 500 };
+      A.X = X + A.X * (INT32)Width / 1000;
+      B.X = X + B.X * (INT32)Width / 1000;
+      A.Y = Y + A.Y * (INT32)Height / 1200;
+      B.Y = Y + B.Y * (INT32)Height / 1200;
+      DrawVectorStroke (Ctx, A, B, Radius, Color);
+    }
+
+    if (Ch == 'i') {
+      Np05jUiDrawCircle (Ctx, X + (INT32)(Width / 2U), Y + (INT32)(Height / 12U), (INT32)(Radius * 2U), Color);
+    }
+
+    X += (INT32)(Width + Gap);
+  }
+}
+
+VOID
+Np05jUiDrawSunMark (
+  IN OUT NP05J_UI_CTX *Ctx,
+  IN     INT32         Cx,
+  IN     INT32         Cy,
+  IN     INT32         Radius
+  )
+{
+  INT32 LogoSize = Radius * 2;
+  INT32 Inner    = (LogoSize * 20) / 1000;
+  INT32 Outer    = (LogoSize * 48) / 1000;
+
+  if (Inner < 1) {
+    Inner = 1;
+  }
+  if (Outer < 2) {
+    Outer = 2;
+  }
+
+  for (UINTN I = 0; I < 6U; I++) {
+    NP05J_UI_POINT D      = mSunSpokes[I];
+    NP05J_UI_POINT N      = { -D.Y, D.X };
+    NP05J_UI_POINT Center = { Cx, Cy };
+    NP05J_UI_POINT End    = {
+      Center.X + (D.X * LogoSize * 43) / 100000,
+      Center.Y + (D.Y * LogoSize * 43) / 100000
+    };
+    NP05J_UI_POINT P[4] = {
+      { Center.X + (N.X * Inner) / 1000, Center.Y + (N.Y * Inner) / 1000 },
+      { End.X + (N.X * Outer) / 1000,    End.Y + (N.Y * Outer) / 1000 },
+      { End.X - (N.X * Outer) / 1000,    End.Y - (N.Y * Outer) / 1000 },
+      { Center.X - (N.X * Inner) / 1000, Center.Y - (N.Y * Inner) / 1000 }
+    };
+    NP05J_UI_POINT Face[4] = { Center, End, P[2], P[3] };
+
+    Np05jUiDrawCircle (Ctx, End.X, End.Y, Outer, COL_GOLD);
+    FillPolygon4 (Ctx, P, COL_GOLD);
+    FillPolygon4 (Ctx, Face, COL_GOLD_SHADE);
+  }
+}
+
+VOID
+Np05jUiDrawSunBrand (
+  IN OUT NP05J_UI_CTX *Ctx,
+  IN     INT32         CenterY,
+  IN     UINT32        LogoSize,
+  IN     UINT32        WordmarkScale,
+  IN     CONST CHAR8  *Subtitle
+  )
+{
+  UINT32                        Short       = (Ctx->ScreenW < Ctx->ScreenH) ? Ctx->ScreenW : Ctx->ScreenH;
+  UINT32                        TitleHeight = WordmarkScale * 7U;
+  UINT32                        Gap         = Short / 22U;
+  UINT32                        GroupWidth  = LogoSize + Gap + SunBrandWidth (TitleHeight);
+  INT32                         LogoX       = ((INT32)Ctx->ScreenW - (INT32)GroupWidth) / 2;
+  INT32                         WordmarkX   = LogoX + (INT32)LogoSize + (INT32)Gap;
+  INT32                         WordmarkY   = CenterY - (INT32)(TitleHeight / 2U);
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL WordC       = Np05jRgb (64, 68, 74);
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Muted       = Np05jRgb (112, 116, 122);
+
+  Np05jUiDrawSunMark (Ctx, LogoX + (INT32)(LogoSize / 2U), CenterY, (INT32)(LogoSize / 2U));
+  DrawSunWordmark (Ctx, WordmarkX, WordmarkY, TitleHeight, WordC);
+  if (Subtitle != NULL) {
+    Np05jUiDrawText5x7 (Ctx, WordmarkX, WordmarkY + (INT32)TitleHeight + 14, 3U, Muted, Subtitle);
+  }
+}
+
 VOID
 Np05jQueryPowerStatus (
   OUT BOOLEAN *BatteryPresent,
@@ -366,33 +900,58 @@ Np05jQueryPowerStatus (
   OUT UINT32  *VoltageMv
   )
 {
-  EFI_CHARGER_EX_PROTOCOL *Charger = NULL;
-  BOOLEAN                  Bat     = FALSE;
-  BOOLEAN                  Chg     = FALSE;
-  UINT32                   Mv      = 0;
+  STATIC BOOLEAN mCachedValid  = FALSE;
+  STATIC BOOLEAN mCachedBat    = FALSE;
+  STATIC BOOLEAN mCachedChg    = FALSE;
+  STATIC UINT32  mCachedMv     = 0;
+  STATIC UINT32  mLastQuerySec = 0;
+  EFI_TIME       Now;
+  UINT32         NowSec  = 0;
+  UINT32         Elapsed = 5U;
 
-  if (EFI_SUCCESS == gBS->LocateProtocol (&gChargerExProtocolGuid, NULL, (VOID **)&Charger) &&
-      (Charger != NULL))
-  {
-    if (Charger->GetBatteryPresence != NULL) {
-      Charger->GetBatteryPresence (&Bat);
+  ZeroMem (&Now, sizeof (Now));
+  if ((gRT != NULL) && !EFI_ERROR (gRT->GetTime (&Now, NULL))) {
+    NowSec = (UINT32)Now.Hour * 3600U + (UINT32)Now.Minute * 60U + (UINT32)Now.Second;
+    if (mCachedValid) {
+      Elapsed = (NowSec >= mLastQuerySec) ? (NowSec - mLastQuerySec) : (86400U - mLastQuerySec + NowSec);
     }
-    if (Charger->GetChargerPresence != NULL) {
-      Charger->GetChargerPresence (&Chg);
+  }
+
+  if (!mCachedValid || (Elapsed >= 5U)) {
+    EFI_CHARGER_EX_PROTOCOL *Charger = NULL;
+    BOOLEAN                  Bat     = FALSE;
+    BOOLEAN                  Chg     = FALSE;
+    UINT32                   Mv      = 0;
+
+    if ((gBS->LocateProtocol (&gChargerExProtocolGuid, NULL, (VOID **)&Charger) == EFI_SUCCESS) &&
+        (Charger != NULL))
+    {
+      if (Charger->GetBatteryPresence != NULL) {
+        Charger->GetBatteryPresence (&Bat);
+      }
+      if (Charger->GetChargerPresence != NULL) {
+        Charger->GetChargerPresence (&Chg);
+      }
+      if (Charger->GetBatteryVoltage != NULL) {
+        Charger->GetBatteryVoltage (&Mv);
+      }
     }
-    if (Charger->GetBatteryVoltage != NULL) {
-      Charger->GetBatteryVoltage (&Mv);
-    }
+
+    mCachedBat    = Bat;
+    mCachedChg    = Chg;
+    mCachedMv     = Mv;
+    mLastQuerySec = NowSec;
+    mCachedValid  = TRUE;
   }
 
   if (BatteryPresent != NULL) {
-    *BatteryPresent = Bat;
+    *BatteryPresent = mCachedBat;
   }
   if (ChargerPresent != NULL) {
-    *ChargerPresent = Chg;
+    *ChargerPresent = mCachedChg;
   }
   if (VoltageMv != NULL) {
-    *VoltageMv = Mv;
+    *VoltageMv = mCachedMv;
   }
 }
 
@@ -409,18 +968,13 @@ Np05jUiDrawHeader (
   UINT32   Mv  = 0;
   CHAR8    RightBuf[96];
 
-  Np05jUiDrawCard (
-    Ctx,
-    (NP05J_RECT){ 0, 0, (INT32)Ctx->ScreenW, 118 },
-    COL_PANEL,
-    COL_BORDER,
-    2
-    );
+  Np05jUiFillRect (Ctx, (NP05J_RECT){ 0, 0, (INT32)Ctx->ScreenW, 114 }, COL_PANEL);
+  Np05jUiFillRect (Ctx, (NP05J_RECT){ 0, 114, (INT32)Ctx->ScreenW, 2 }, COL_BORDER);
 
-  Np05jUiFillRect (Ctx, (NP05J_RECT){ 0, 115, (INT32)Ctx->ScreenW, 3 }, COL_ACCENT);
-  Np05jUiDrawText (Ctx, 42, 22, 4, COL_TEXT, Title);
+  Np05jUiDrawSunMark (Ctx, 66, 57, 32);
+  Np05jUiDrawText5x7 (Ctx, 118, 28, 4U, COL_TEXT, Title);
   if (Subtitle != NULL) {
-    Np05jUiDrawText (Ctx, 44, 72, 2, COL_SUBTEXT, Subtitle);
+    Np05jUiDrawText5x7 (Ctx, 118, 72, 2U, COL_MUTED, Subtitle);
   }
 
   ZeroMem (&Now, sizeof (Now));
@@ -443,8 +997,8 @@ Np05jUiDrawHeader (
     (UINT32)Ctx->AbsCount
     );
   {
-    INT32 Tw = (INT32)(AsciiStrLen (RightBuf) * 8U * 2U);
-    Np05jUiDrawText (Ctx, (INT32)Ctx->ScreenW - Tw - 42, 44, 2, COL_ACCENT, RightBuf);
+    INT32 Tw = (INT32)((AsciiStrLen (RightBuf) * 6U - 1U) * 2U);
+    Np05jUiDrawText5x7 (Ctx, (INT32)Ctx->ScreenW - Tw - 42, 48, 2U, COL_SUBTEXT, RightBuf);
   }
 }
 
@@ -473,17 +1027,18 @@ Np05jUiDrawBannerIfAny (
   if (!Ctx->StatusValid || (Ctx->StatusBanner[0] == '\0')) {
     return;
   }
-  Np05jUiDrawCard (
+  Np05jUiDrawRoundedCard (
     Ctx,
     (NP05J_RECT){ 42, (INT32)Ctx->ScreenH - 128, (INT32)Ctx->ScreenW - 84, 54 },
+    14,
     COL_PANEL,
     Ctx->StatusColor,
     3
     );
-  Np05jUiDrawTextCentered (
+  Np05jUiDrawText5x7Centered (
     Ctx,
     (NP05J_RECT){ 42, (INT32)Ctx->ScreenH - 128, (INT32)Ctx->ScreenW - 84, 54 },
-    2,
+    2U,
     Ctx->StatusColor,
     Ctx->StatusBanner
     );
@@ -527,8 +1082,8 @@ DrawCursorOverlay (
   IN OUT NP05J_UI_CTX *Ctx
   )
 {
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL White  = COL_WHITE;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Accent = COL_ACCENT;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL White   = COL_WHITE;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Outline = COL_TEXT;
 
   if (!Ctx->MouseVisible) {
     mPrevCursorX = -1;
@@ -551,9 +1106,9 @@ DrawCursorOverlay (
         W = (INT32)Ctx->ScreenW - Ctx->CursorX;
       }
       if (W > 0) {
-        Ctx->Gop->Blt (Ctx->Gop, &White, EfiBltVideoFill, 0, 0, (UINTN)Ctx->CursorX, (UINTN)(Ctx->CursorY + Y), (UINTN)W, 1, 0);
+        Ctx->Gop->Blt (Ctx->Gop, &Outline, EfiBltVideoFill, 0, 0, (UINTN)Ctx->CursorX, (UINTN)(Ctx->CursorY + Y), (UINTN)W, 1, 0);
         if (W > 3) {
-          Ctx->Gop->Blt (Ctx->Gop, &Accent, EfiBltVideoFill, 0, 0, (UINTN)(Ctx->CursorX + 1), (UINTN)(Ctx->CursorY + Y), (UINTN)(W - 2), 1, 0);
+          Ctx->Gop->Blt (Ctx->Gop, &White, EfiBltVideoFill, 0, 0, (UINTN)(Ctx->CursorX + 1), (UINTN)(Ctx->CursorY + Y), (UINTN)(W - 2), 1, 0);
         }
       }
     }
@@ -600,8 +1155,19 @@ Np05jUiRefreshHandles (
   if (!EFI_ERROR (Status) && (Handles != NULL)) {
     for (UINTN I = 0; (I < Count) && (Ctx->AbsCount < NP05J_MAX_ABS_HANDLES); I++) {
       EFI_ABSOLUTE_POINTER_PROTOCOL *Ptr = NULL;
+      if (Handles[I] == gST->ConsoleInHandle) {
+        continue;
+      }
       if (!EFI_ERROR (gBS->HandleProtocol (Handles[I], &gEfiAbsolutePointerProtocolGuid, (VOID **)&Ptr)) && (Ptr != NULL)) {
         Ctx->AbsPtrs[Ctx->AbsCount++] = Ptr;
+      }
+    }
+    if (Ctx->AbsCount == 0U) {
+      for (UINTN I = 0; (I < Count) && (Ctx->AbsCount < NP05J_MAX_ABS_HANDLES); I++) {
+        EFI_ABSOLUTE_POINTER_PROTOCOL *Ptr = NULL;
+        if (!EFI_ERROR (gBS->HandleProtocol (Handles[I], &gEfiAbsolutePointerProtocolGuid, (VOID **)&Ptr)) && (Ptr != NULL)) {
+          Ctx->AbsPtrs[Ctx->AbsCount++] = Ptr;
+        }
       }
     }
     FreePool (Handles);
@@ -614,8 +1180,19 @@ Np05jUiRefreshHandles (
   if (!EFI_ERROR (Status) && (Handles != NULL)) {
     for (UINTN I = 0; (I < Count) && (Ctx->MouseCount < NP05J_MAX_MOUSE_HANDLES); I++) {
       EFI_SIMPLE_POINTER_PROTOCOL *Ptr = NULL;
+      if (Handles[I] == gST->ConsoleInHandle) {
+        continue;
+      }
       if (!EFI_ERROR (gBS->HandleProtocol (Handles[I], &gEfiSimplePointerProtocolGuid, (VOID **)&Ptr)) && (Ptr != NULL)) {
         Ctx->MousePtrs[Ctx->MouseCount++] = Ptr;
+      }
+    }
+    if (Ctx->MouseCount == 0U) {
+      for (UINTN I = 0; (I < Count) && (Ctx->MouseCount < NP05J_MAX_MOUSE_HANDLES); I++) {
+        EFI_SIMPLE_POINTER_PROTOCOL *Ptr = NULL;
+        if (!EFI_ERROR (gBS->HandleProtocol (Handles[I], &gEfiSimplePointerProtocolGuid, (VOID **)&Ptr)) && (Ptr != NULL)) {
+          Ctx->MousePtrs[Ctx->MouseCount++] = Ptr;
+        }
       }
     }
     FreePool (Handles);
@@ -677,6 +1254,8 @@ Np05jUiInit (
   Ctx->CursorX = (INT32)(Ctx->ScreenW / 2U);
   Ctx->CursorY = (INT32)(Ctx->ScreenH / 2U);
 
+  gBS->LocateProtocol (&gNp05jFastbootProtocolGuid, NULL, (VOID **)&Ctx->Fastboot);
+
   Np05jBiosConfigLoad (&Ctx->Config);
   Np05jUiRefreshHandles (Ctx);
   Np05jUiDrainInput (Ctx);
@@ -735,6 +1314,18 @@ Np05jUiPollInput (
   ZeroMem (Event, sizeof (*Event));
 
   while (TRUE) {
+    /* 0. Pump SunUEFI resident Fastboot service at application TPL */
+    if (Ctx->Fastboot != NULL) {
+      NP05J_FASTBOOT_ACTION FbAct = Np05jFbActionNone;
+      if (!EFI_ERROR (Ctx->Fastboot->ServiceStep (Ctx->Fastboot, &FbAct)) &&
+          (FbAct != Np05jFbActionNone))
+      {
+        Event->Kind     = Np05jInputFastbootAction;
+        Event->FbAction = FbAct;
+        return EFI_SUCCESS;
+      }
+    }
+
     /* 1. Poll touchscreen & absolute pointer handles */
     for (UINTN I = 0; I < Ctx->AbsCount; I++) {
       EFI_ABSOLUTE_POINTER_PROTOCOL *Ptr = Ctx->AbsPtrs[I];
@@ -743,8 +1334,13 @@ Np05jUiPollInput (
       BOOLEAN                        GotAny = FALSE;
 
       while (!EFI_ERROR (Ptr->GetState (Ptr, &St))) {
+        BOOLEAN SampleDown = ((St.ActiveButtons & EFI_ABSP_TouchActive) != 0U);
         Latest = St;
         GotAny = TRUE;
+        /* Never coalesce across press/release edges or fast taps get swallowed */
+        if (SampleDown != Ctx->AbsWasDown[I]) {
+          break;
+        }
       }
 
       if (GotAny) {
@@ -867,6 +1463,10 @@ Np05jUiPollInput (
         }
         if ((Key.ScanCode == SCAN_ESC) || (Key.UnicodeChar == CHAR_BACKSPACE) || (Key.UnicodeChar == L'q') || (Key.UnicodeChar == L'Q')) {
           Event->Kind = Np05jInputBack;
+          return EFI_SUCCESS;
+        }
+        if (Key.ScanCode == SCAN_F12) {
+          Event->Kind = Np05jInputF12;
           return EFI_SUCCESS;
         }
       }

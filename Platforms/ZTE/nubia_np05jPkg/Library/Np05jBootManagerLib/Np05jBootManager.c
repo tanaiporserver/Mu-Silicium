@@ -89,6 +89,10 @@ PollSplashTouchPills (
       EFI_ABSOLUTE_POINTER_PROTOCOL *Ptr = NULL;
       EFI_ABSOLUTE_POINTER_STATE     St;
 
+      if ((Count > 1U) && (Handles[I] == gST->ConsoleInHandle)) {
+        continue;
+      }
+
       if (!EFI_ERROR (gBS->HandleProtocol (Handles[I], &gEfiAbsolutePointerProtocolGuid, (VOID **)&Ptr)) && (Ptr != NULL)) {
         while (!EFI_ERROR (Ptr->GetState (Ptr, &St))) {
           if (((St.ActiveButtons & EFI_ABSP_TouchActive) != 0U) &&

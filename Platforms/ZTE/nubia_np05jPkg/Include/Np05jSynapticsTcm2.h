@@ -42,7 +42,7 @@ typedef uint64_t tcm2_u64_t;
 #define TCM2_CMD_DISABLE_REPORT         0x06U
 #define TCM2_CMD_GET_REPORT             0x0AU
 #define TCM2_CMD_GET_APP_INFO           0x20U
-#define TCM2_CMD_GET_TOUCH_REPORT_CFG   0x21U
+#define TCM2_CMD_GET_TOUCH_REPORT_CFG   0x25U
 
 /* TCM v2 status / report codes */
 #define TCM2_STATUS_IDLE                0x00U

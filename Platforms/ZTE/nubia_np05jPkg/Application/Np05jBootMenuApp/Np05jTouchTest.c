@@ -68,7 +68,7 @@ Np05jRunTouchTest (
         Np05jUiDrawCard (
           Ctx,
           CornerRect[C],
-          CornerHit[C] ? Np05jRgb (16, 78, 56) : COL_CARD,
+          CornerHit[C] ? Np05jRgb (209, 250, 229) : COL_CARD,
           CornerHit[C] ? COL_GREEN : COL_GOLD,
           3
           );
